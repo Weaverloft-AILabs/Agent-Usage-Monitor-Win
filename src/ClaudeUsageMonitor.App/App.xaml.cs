@@ -1,5 +1,6 @@
 using System.IO;
 using System.Windows;
+using ClaudeUsageMonitor.App.Notifications;
 using ClaudeUsageMonitor.App.Services;
 using ClaudeUsageMonitor.App.Tray;
 using ClaudeUsageMonitor.App.ViewModels;
@@ -21,6 +22,7 @@ public partial class App : Application
     private TrayIconHost? _tray;
     private WidgetWindow? _widget;
     private WidgetController? _widgetController;
+    private ThresholdNotifier? _notifier;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -44,10 +46,13 @@ public partial class App : Application
         _widgetController = new WidgetController(
             _widget, settings, _host.Services.GetRequiredService<SettingsStore>());
         _widgetController.ApplyMode(settings.Mode);
+
+        _notifier = new ThresholdNotifier(settings, _tray);
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _notifier?.Dispose();
         _widgetController?.Dispose();
         _widget?.Close();
         _tray?.Dispose();
