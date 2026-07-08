@@ -14,9 +14,19 @@
     </Style>
     <Style x:Key="Card" TargetType="Border">
       <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="8"/>
       <Setter Property="Padding" Value="12,8"/>
       <Setter Property="Margin" Value="0,0,10,0"/>
+    </Style>
+    <!-- 값이 빈 문자열이면 숨김 -->
+    <Style x:Key="HideWhenEmpty" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+      <Style.Triggers>
+        <Trigger Property="Text" Value="">
+          <Setter Property="Visibility" Value="Collapsed"/>
+        </Trigger>
+      </Style.Triggers>
     </Style>
   </Window.Resources>
 
@@ -41,12 +51,16 @@
         <StackPanel>
           <TextBlock Text="5시간 사용률" FontSize="12" Opacity="0.7"/>
           <StackPanel Orientation="Horizontal">
-            <TextBlock Text="{Binding FiveHourPct, StringFormat={}{0:0}%}" FontSize="30" FontWeight="Bold"/>
+            <TextBlock Text="{Binding FiveHourPct, StringFormat={}{0:0}%}" FontSize="30" FontWeight="Bold"
+                       FontFamily="{StaticResource MonoFont}"/>
             <TextBlock Text="{Binding FiveHourResetText}" FontSize="11" Opacity="0.6"
                        VerticalAlignment="Bottom" Margin="10,0,0,6"/>
           </StackPanel>
           <ProgressBar Value="{Binding FiveHourPct, Mode=OneWay}" Maximum="100" Height="8"
                        Background="{DynamicResource ProgressTrackBrush}" Foreground="#5AAAFA" BorderThickness="0"/>
+          <TextBlock Text="{Binding ExhaustionNote}" FontSize="10" Margin="0,5,0,0"
+                     Foreground="{DynamicResource PredictionBrush}" FontWeight="SemiBold"
+                     Style="{StaticResource HideWhenEmpty}"/>
         </StackPanel>
       </Border>
 
@@ -54,7 +68,8 @@
         <StackPanel>
           <TextBlock Text="주간 사용률" FontSize="12" Opacity="0.7"/>
           <StackPanel Orientation="Horizontal">
-            <TextBlock Text="{Binding SevenDayPct, StringFormat={}{0:0}%}" FontSize="30" FontWeight="Bold"/>
+            <TextBlock Text="{Binding SevenDayPct, StringFormat={}{0:0}%}" FontSize="30" FontWeight="Bold"
+                       FontFamily="{StaticResource MonoFont}"/>
             <TextBlock Text="{Binding SevenDayResetText}" FontSize="11" Opacity="0.6"
                        VerticalAlignment="Bottom" Margin="10,0,0,6"/>
           </StackPanel>
@@ -69,9 +84,8 @@
         </Border>
         <TextBlock Text="(stale)" FontSize="10" Foreground="#F0A030" HorizontalAlignment="Right" Margin="0,4,0,0"
                    Visibility="{Binding IsStale, Converter={StaticResource BoolToVis}}"/>
-        <Button x:Name="SettingsButton" Content="설정" Margin="0,8,0,0" Padding="14,5"
-                Background="{DynamicResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
-                BorderThickness="0" Cursor="Hand"/>
+        <Button x:Name="SettingsButton" Content="설정" Margin="0,8,0,0"
+                Style="{StaticResource AppButton}" HorizontalAlignment="Right" MinWidth="76"/>
       </StackPanel>
     </Grid>
 
@@ -86,13 +100,18 @@
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
           <DataTemplate>
-            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" Padding="10,5" Margin="0,0,8,6"
+            <!-- 암시적 TextBlock 스타일은 DataTemplate 경계를 넘지 않으므로 명시 지정 (가시성 버그 수정) -->
+            <Border Background="{DynamicResource CardBackgroundBrush}"
+                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
+                    CornerRadius="6" Padding="10,5" Margin="0,0,8,6"
                     ToolTip="{Binding FullPath}">
               <StackPanel Orientation="Horizontal">
                 <Ellipse Width="7" Height="7" Fill="#4CC38A" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                <TextBlock Text="{Binding ProjectName}" FontSize="12"/>
-                <TextBlock Text="{Binding Status}" FontSize="10" Opacity="0.6" Margin="6,0,0,0"
-                           VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding ProjectName}" FontSize="12"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock Text="{Binding Status}" FontSize="10" Opacity="0.65" Margin="6,0,0,0"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
               </StackPanel>
             </Border>
           </DataTemplate>
@@ -102,7 +121,7 @@
                  Visibility="{Binding HasNoLiveSessions, Converter={StaticResource BoolToVis}}"/>
     </StackPanel>
 
-    <!-- 기간 토글 + 합계 -->
+    <!-- 기간 세그먼트 + 합계 -->
     <Grid Grid.Row="2" Margin="0,14,0,6">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="Auto"/>
@@ -110,24 +129,27 @@
         <ColumnDefinition Width="Auto"/>
         <ColumnDefinition Width="Auto"/>
       </Grid.ColumnDefinitions>
-      <StackPanel Grid.Column="0" Orientation="Horizontal">
-        <RadioButton x:Name="DailyToggle" Content="일간" IsChecked="True" Margin="0,0,10,0"
-                     Foreground="{DynamicResource TextPrimaryBrush}"/>
-        <RadioButton x:Name="WeeklyToggle" Content="주간" Margin="0,0,10,0"
-                     Foreground="{DynamicResource TextPrimaryBrush}"/>
-        <RadioButton x:Name="MonthlyToggle" Content="월간"
-                     Foreground="{DynamicResource TextPrimaryBrush}"/>
-      </StackPanel>
+      <Border Grid.Column="0" Background="{DynamicResource SegmentTrackBrush}"
+              BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
+              CornerRadius="8" VerticalAlignment="Center">
+        <StackPanel Orientation="Horizontal">
+          <RadioButton x:Name="DailyToggle" Content="일간" IsChecked="True" Style="{StaticResource SegmentRadio}"/>
+          <RadioButton x:Name="WeeklyToggle" Content="주간" Style="{StaticResource SegmentRadio}"/>
+          <RadioButton x:Name="MonthlyToggle" Content="월간" Style="{StaticResource SegmentRadio}"/>
+        </StackPanel>
+      </Border>
       <Border Grid.Column="2" Style="{StaticResource Card}">
         <StackPanel Orientation="Horizontal">
           <TextBlock Text="총 토큰 " Opacity="0.7" FontSize="12" VerticalAlignment="Center"/>
-          <TextBlock Text="{Binding PeriodTotalTokensText}" FontWeight="Bold" FontSize="15"/>
+          <TextBlock Text="{Binding PeriodTotalTokensText}" FontWeight="Bold" FontSize="15"
+                     FontFamily="{StaticResource MonoFont}"/>
         </StackPanel>
       </Border>
       <Border Grid.Column="3" Style="{StaticResource Card}" Margin="0">
         <StackPanel Orientation="Horizontal">
           <TextBlock Text="총 비용 " Opacity="0.7" FontSize="12" VerticalAlignment="Center"/>
-          <TextBlock Text="{Binding PeriodTotalCostText}" FontWeight="Bold" FontSize="15" Foreground="#7BD88F"/>
+          <TextBlock Text="{Binding PeriodTotalCostText}" FontWeight="Bold" FontSize="15" Foreground="#7BD88F"
+                     FontFamily="{StaticResource MonoFont}"/>
         </StackPanel>
       </Border>
     </Grid>

@@ -23,6 +23,15 @@ public partial class DashboardWindow : Window
         MonthlyToggle.Checked += (_, _) => _viewModel.PeriodIndex = 2;
         SettingsButton.Click += (_, _) => SettingsRequested?.Invoke();
 
+        // Series 교체(기간 토글/롤업 갱신) 후에도 렌더가 고착될 수 있어 매번 킥 — 없으면 토글이 무반응
+        _viewModel.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(DashboardViewModel.Series) && IsVisible)
+            {
+                NudgeChart();
+            }
+        };
+
         _liveTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
             Interval = TimeSpan.FromSeconds(5),

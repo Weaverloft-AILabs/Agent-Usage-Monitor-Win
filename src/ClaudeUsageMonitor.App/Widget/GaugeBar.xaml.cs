@@ -20,6 +20,9 @@ public partial class GaugeBar : UserControl
     public static readonly DependencyProperty ResetTextProperty = DependencyProperty.Register(
         nameof(ResetText), typeof(string), typeof(GaugeBar), new PropertyMetadata("", OnChanged));
 
+    public static readonly DependencyProperty PredictionTextProperty = DependencyProperty.Register(
+        nameof(PredictionText), typeof(string), typeof(GaugeBar), new PropertyMetadata("", OnChanged));
+
     public string Label
     {
         get => (string)GetValue(LabelProperty);
@@ -44,6 +47,13 @@ public partial class GaugeBar : UserControl
         set => SetValue(ResetTextProperty, value);
     }
 
+    /// <summary>소진 예측 텍스트 (빈 문자열이면 숨김).</summary>
+    public string PredictionText
+    {
+        get => (string)GetValue(PredictionTextProperty);
+        set => SetValue(PredictionTextProperty, value);
+    }
+
     public GaugeBar()
     {
         InitializeComponent();
@@ -61,5 +71,9 @@ public partial class GaugeBar : UserControl
         Fill.Background = BarBrush;
         PercentText.Text = $"{pct:0}%";
         ResetTextBlock.Text = ResetText;
+        PredictionTextBlock.Text = PredictionText;
+        PredictionTextBlock.Visibility = string.IsNullOrEmpty(PredictionText)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
     }
 }

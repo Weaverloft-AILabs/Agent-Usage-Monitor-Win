@@ -2,14 +2,22 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#1E1F29"/>
   <SolidColorBrush x:Key="CardBackgroundBrush" Color="#2A2C3A"/>
+  <SolidColorBrush x:Key="CardBorderBrush" Color="#353849"/>
   <SolidColorBrush x:Key="TextPrimaryBrush" Color="#E8E8F0"/>
-  <SolidColorBrush x:Key="InputBackgroundBrush" Color="#2A2C3A"/>
+  <SolidColorBrush x:Key="InputBackgroundBrush" Color="#232532"/>
   <SolidColorBrush x:Key="InputBorderBrush" Color="#44475A"/>
   <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="#3A3D4F"/>
-  <SolidColorBrush x:Key="AccentButtonBrush" Color="#4A6DB5"/>
+  <SolidColorBrush x:Key="ButtonHoverBrush" Color="#4A4E63"/>
+  <SolidColorBrush x:Key="ButtonPressedBrush" Color="#323545"/>
+  <SolidColorBrush x:Key="AccentButtonBrush" Color="#D97757"/>
+  <SolidColorBrush x:Key="AccentHoverBrush" Color="#C4674A"/>
+  <SolidColorBrush x:Key="AccentPressedBrush" Color="#A85842"/>
   <SolidColorBrush x:Key="BadgeBackgroundBrush" Color="#33405A"/>
   <SolidColorBrush x:Key="ChartBackgroundBrush" Color="#1E1F29"/>
   <SolidColorBrush x:Key="ProgressTrackBrush" Color="#22FFFFFF"/>
+  <SolidColorBrush x:Key="SegmentTrackBrush" Color="#262837"/>
+  <SolidColorBrush x:Key="SegmentHoverBrush" Color="#363A4C"/>
+  <SolidColorBrush x:Key="PredictionBrush" Color="#E08B6B"/>
   <SolidColorBrush x:Key="WidgetBackgroundBrush" Color="#D91C1E28"/>
   <SolidColorBrush x:Key="WidgetBorderBrush" Color="#33FFFFFF"/>
   <SolidColorBrush x:Key="WidgetTextBrush" Color="#DDFFFFFF"/>

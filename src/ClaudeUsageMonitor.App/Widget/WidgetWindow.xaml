@@ -19,7 +19,9 @@
       <widget:GaugeBar x:Name="FiveHourGauge" Label="5H"
                        Percent="{Binding FiveHourPct}"
                        BarBrush="{Binding FiveHourBrush}"
-                       ResetText="{Binding FiveHourResetText}"/>
+                       ResetText="{Binding FiveHourResetText}"
+                       PredictionText="{Binding ExhaustionText}"
+                       ToolTip="소진 예측: 최근 사용 속도 기준 5시간 한도(100%) 도달까지 남은 시간"/>
       <widget:GaugeBar x:Name="SevenDayGauge" Label="7D"
                        Percent="{Binding SevenDayPct}"
                        BarBrush="{Binding SevenDayBrush}"

@@ -14,14 +14,16 @@ public sealed class RateLimitPollingService : BackgroundService
 {
     private readonly RateLimitClient _client;
     private readonly MonitorSettings _settings;
+    private readonly BurnRateEstimator _estimator;
     private readonly SemaphoreSlim _wake = new(0);
 
     public RateLimitState? Current { get; private set; }
 
-    public RateLimitPollingService(RateLimitClient client, MonitorSettings settings)
+    public RateLimitPollingService(RateLimitClient client, MonitorSettings settings, BurnRateEstimator estimator)
     {
         _client = client;
         _settings = settings;
+        _estimator = estimator;
     }
 
     /// <summary>트레이 "새로고침" — 대기를 깨워 즉시 폴링.</summary>
@@ -34,6 +36,10 @@ public sealed class RateLimitPollingService : BackgroundService
             var now = DateTimeOffset.UtcNow;
             var state = await _client.FetchAsync(now, stoppingToken).ConfigureAwait(false);
             Current = state;
+            if (state.Snapshot is { IsStale: false } fresh)
+            {
+                _estimator.Add(fresh.FetchedAt, fresh.FiveHourPct); // 소진 속도 표본 (stale 캐시는 제외)
+            }
             WeakReferenceMessenger.Default.Send(new RateLimitUpdatedMessage(state));
 
             var delay = TimeSpan.FromSeconds(_settings.PollIntervalSeconds);

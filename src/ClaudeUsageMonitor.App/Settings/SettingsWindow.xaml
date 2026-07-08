@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="설정 — Claude Usage Monitor"
-        Width="420" SizeToContent="Height"
+        Width="480" SizeToContent="Height"
         ResizeMode="NoResize"
         Background="{DynamicResource WindowBackgroundBrush}"
         WindowStartupLocation="CenterOwner">
@@ -11,70 +11,143 @@
       <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
       <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
+    <Style TargetType="CheckBox">
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <!-- 설정 행: 좌 라벨(+설명) / 우 컨트롤 -->
+    <Style x:Key="RowLabel" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+      <Setter Property="FontSize" Value="12"/>
+    </Style>
+    <Style x:Key="RowHint" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+      <Setter Property="FontSize" Value="10"/>
+      <Setter Property="Opacity" Value="0.55"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="Margin" Value="0,2,0,0"/>
+    </Style>
   </Window.Resources>
 
-  <StackPanel Margin="20">
+  <StackPanel Margin="24,20,24,20">
+    <TextBlock Text="설정" FontSize="18" FontWeight="Bold" Margin="0,0,0,16"/>
+
+    <!-- 모니터링 -->
+    <TextBlock Text="모니터링" Style="{StaticResource SectionLabel}"/>
+    <Border Style="{StaticResource SectionCard}">
+      <StackPanel>
+        <Grid Margin="0,10">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
+            <TextBlock Text="새로고침 주기 (초)" Style="{StaticResource RowLabel}"/>
+            <TextBlock Text="usage API 보호를 위해 최소 180초" Style="{StaticResource RowHint}"/>
+          </StackPanel>
+          <TextBox Grid.Column="1" Width="90"
+                   Text="{Binding PollIntervalSeconds, UpdateSourceTrigger=PropertyChanged}"
+                   Style="{StaticResource AppTextBox}"/>
+        </Grid>
+
+        <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,2"/>
+
+        <Grid Margin="0,10">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
+            <TextBlock Text="5시간 경고 임계값" Style="{StaticResource RowLabel}"/>
+            <TextBlock Text="도달 시 트레이 알림 1회 (리셋마다 재무장)" Style="{StaticResource RowHint}"/>
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal">
+            <Slider Value="{Binding WarnThresholdPct}" Minimum="50" Maximum="99"
+                    Width="150" TickFrequency="5" IsSnapToTickEnabled="True"
+                    VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding WarnThresholdPct, StringFormat={}{0:0}%}" Margin="10,0,0,0"
+                       FontWeight="Bold" MinWidth="34"/>
+          </StackPanel>
+        </Grid>
+
+        <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,2"/>
+
+        <Grid Margin="0,10">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
+            <TextBlock Text="한도 소진 예측 표시" Style="{StaticResource RowLabel}"/>
+            <TextBlock Text="최근 사용 속도로 5시간 한도 도달 시점을 위젯·대시보드에 표시"
+                       Style="{StaticResource RowHint}"/>
+          </StackPanel>
+          <CheckBox Grid.Column="1" IsChecked="{Binding ShowExhaustionPrediction}"/>
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <!-- 표시 -->
+    <TextBlock Text="표시" Style="{StaticResource SectionLabel}"/>
+    <Border Style="{StaticResource SectionCard}">
+      <StackPanel>
+        <Grid Margin="0,10">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <TextBlock Grid.Column="0" Text="테마" Style="{StaticResource RowLabel}"/>
+          <ComboBox Grid.Column="1" Width="170" SelectedIndex="{Binding ThemeIndex}"
+                    Style="{StaticResource AppComboBox}">
+            <ComboBoxItem Content="다크"/>
+            <ComboBoxItem Content="라이트"/>
+            <ComboBoxItem Content="시스템 설정 따름"/>
+          </ComboBox>
+        </Grid>
+
+        <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,2"/>
+
+        <Grid Margin="0,10">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
+            <TextBlock Text="표시 모드" Style="{StaticResource RowLabel}"/>
+            <TextBlock Text="작업표시줄 도킹 시 드래그로 위치 이동 가능" Style="{StaticResource RowHint}"/>
+          </StackPanel>
+          <ComboBox Grid.Column="1" Width="170" SelectedIndex="{Binding ModeIndex}"
+                    Style="{StaticResource AppComboBox}">
+            <ComboBoxItem Content="작업표시줄 도킹"/>
+            <ComboBoxItem Content="플로팅"/>
+            <ComboBoxItem Content="숨김"/>
+          </ComboBox>
+        </Grid>
+
+        <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,2"/>
+
+        <Grid Margin="0,10">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <TextBlock Grid.Column="0" Text="Windows 시작 시 실행" Style="{StaticResource RowLabel}"/>
+          <CheckBox Grid.Column="1" IsChecked="{Binding AutoStart}"/>
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <!-- 푸터 -->
     <Grid>
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="160"/>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="Auto"/>
         <ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
-      <Grid.RowDefinitions>
-        <RowDefinition Height="40"/>
-        <RowDefinition Height="52"/>
-        <RowDefinition Height="40"/>
-        <RowDefinition Height="40"/>
-        <RowDefinition Height="40"/>
-      </Grid.RowDefinitions>
-
-      <TextBlock Grid.Row="0" Grid.Column="0" Text="새로고침 주기 (초)"/>
-      <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
-        <TextBox Text="{Binding PollIntervalSeconds, UpdateSourceTrigger=PropertyChanged}"
-                 Width="80" VerticalContentAlignment="Center"
-                 Background="{DynamicResource InputBackgroundBrush}"
-                 Foreground="{DynamicResource TextPrimaryBrush}"
-                 BorderBrush="{DynamicResource InputBorderBrush}"/>
-        <TextBlock Text="최소 180초 (usage API 보호)" FontSize="10" Opacity="0.5" Margin="8,0,0,0"/>
-      </StackPanel>
-
-      <TextBlock Grid.Row="1" Grid.Column="0" Text="5시간 경고 임계값 (%)"/>
-      <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal">
-        <Slider Value="{Binding WarnThresholdPct}" Minimum="50" Maximum="99"
-                Width="180" TickFrequency="5" IsSnapToTickEnabled="True"
-                VerticalAlignment="Center"/>
-        <TextBlock Text="{Binding WarnThresholdPct, StringFormat={}{0:0}%}" Margin="10,0,0,0"
-                   FontWeight="Bold"/>
-      </StackPanel>
-
-      <TextBlock Grid.Row="2" Grid.Column="0" Text="테마"/>
-      <ComboBox Grid.Row="2" Grid.Column="1" SelectedIndex="{Binding ThemeIndex}"
-                Width="180" HorizontalAlignment="Left" VerticalContentAlignment="Center">
-        <ComboBoxItem Content="다크"/>
-        <ComboBoxItem Content="라이트"/>
-        <ComboBoxItem Content="시스템 설정 따름"/>
-      </ComboBox>
-
-      <TextBlock Grid.Row="3" Grid.Column="0" Text="표시 모드"/>
-      <ComboBox Grid.Row="3" Grid.Column="1" SelectedIndex="{Binding ModeIndex}"
-                Width="180" HorizontalAlignment="Left" VerticalContentAlignment="Center">
-        <ComboBoxItem Content="작업표시줄 도킹"/>
-        <ComboBoxItem Content="플로팅"/>
-        <ComboBoxItem Content="숨김"/>
-      </ComboBox>
-
-      <TextBlock Grid.Row="4" Grid.Column="0" Text="Windows 시작 시 실행"/>
-      <CheckBox Grid.Row="4" Grid.Column="1" IsChecked="{Binding AutoStart}"
-                VerticalAlignment="Center"/>
+      <Button Grid.Column="0" Content="저장" Command="{Binding SaveCommand}"
+              Style="{StaticResource AccentButton}" MinWidth="88"/>
+      <Button Grid.Column="1" Content="데이터 폴더 열기" Command="{Binding OpenDataFolderCommand}"
+              Style="{StaticResource AppButton}" Margin="10,0,0,0"/>
+      <TextBlock Grid.Column="2" Text="{Binding StatusText}" Margin="12,0,0,0" FontSize="11"
+                 Foreground="#7BD88F" HorizontalAlignment="Right"/>
     </Grid>
-
-    <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-      <Button Content="저장" Command="{Binding SaveCommand}" Padding="20,6"
-              Background="{DynamicResource AccentButtonBrush}" Foreground="White" BorderThickness="0" Cursor="Hand"/>
-      <Button Content="데이터 폴더 열기" Command="{Binding OpenDataFolderCommand}" Padding="14,6"
-              Margin="10,0,0,0" Background="{DynamicResource ButtonBackgroundBrush}"
-              Foreground="{DynamicResource TextPrimaryBrush}" BorderThickness="0"
-              Cursor="Hand"/>
-      <TextBlock Text="{Binding StatusText}" Margin="12,0,0,0" FontSize="11" Foreground="#7BD88F"/>
-    </StackPanel>
   </StackPanel>
 </Window>

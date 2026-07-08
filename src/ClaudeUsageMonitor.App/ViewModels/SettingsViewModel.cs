@@ -29,6 +29,9 @@ public partial class SettingsViewModel : ObservableObject
     private int _themeIndex;
 
     [ObservableProperty]
+    private bool _showExhaustionPrediction;
+
+    [ObservableProperty]
     private bool _autoStart;
 
     [ObservableProperty]
@@ -44,6 +47,7 @@ public partial class SettingsViewModel : ObservableObject
         _warnThresholdPct = settings.WarnThresholdPct;
         _modeIndex = (int)settings.Mode;
         _themeIndex = (int)settings.Theme;
+        _showExhaustionPrediction = settings.ShowExhaustionPrediction;
         _autoStart = AutoStartManager.IsEnabled();
     }
 
@@ -56,6 +60,7 @@ public partial class SettingsViewModel : ObservableObject
         _settings.WarnThresholdPct = Math.Clamp(WarnThresholdPct, 1, 100);
         _settings.Mode = (WidgetMode)Math.Clamp(ModeIndex, 0, 2);
         _settings.Theme = (ThemePreference)Math.Clamp(ThemeIndex, 0, 2);
+        _settings.ShowExhaustionPrediction = ShowExhaustionPrediction;
         _settings.AutoStart = AutoStart;
         _store.Save(_settings);
 

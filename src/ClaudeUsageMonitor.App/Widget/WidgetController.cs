@@ -59,6 +59,15 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
 
         _window.SourceInitialized += (_, _) => HookWindowMessages();
 
+        // 소진 예측 텍스트 등장/소멸로 위젯 폭이 변하면 트레이 침범 방지를 위해 재도킹
+        _window.SizeChanged += (_, _) =>
+        {
+            if (_settings.Mode == WidgetMode.Taskbar && _window.IsVisible)
+            {
+                _window.Dispatcher.BeginInvoke(Dock, DispatcherPriority.Background);
+            }
+        };
+
         // 작업표시줄도 topmost라 사용자 상호작용 시 위젯 위로 올라옴 —
         // ① 포그라운드 변경 이벤트에서 즉시, ② 2초 주기로 topmost 재주장
         _topmostTimer = new DispatcherTimer(DispatcherPriority.Background)

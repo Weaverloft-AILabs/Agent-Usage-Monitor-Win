@@ -37,6 +37,9 @@ public sealed class MonitorSettings
 
     public ThemePreference Theme { get; set; } = ThemePreference.Dark;
 
+    /// <summary>최근 사용 속도 기준 5시간 한도 소진 예측 시간을 위젯/대시보드에 표시.</summary>
+    public bool ShowExhaustionPrediction { get; set; } = true;
+
     /// <summary>Floating 모드 마지막 위치 (DIP). null이면 기본 위치.</summary>
     public double? FloatingLeft { get; set; }
     public double? FloatingTop { get; set; }

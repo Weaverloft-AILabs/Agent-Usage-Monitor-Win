@@ -5,8 +5,10 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <!-- 시작 시 ThemeManager가 설정에 따라 교체 (기본 다크) -->
+                <!-- [0] 테마 — 시작 시 ThemeManager가 설정에 따라 교체 (인덱스 0 고정) -->
                 <ResourceDictionary Source="Themes/DarkTheme.xaml"/>
+                <!-- [1] 공유 컨트롤 스타일 (테마 브러시를 DynamicResource로 참조) -->
+                <ResourceDictionary Source="Themes/Styles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

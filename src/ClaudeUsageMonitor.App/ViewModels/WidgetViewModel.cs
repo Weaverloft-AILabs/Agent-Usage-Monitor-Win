@@ -1,6 +1,7 @@
 using System.Windows.Media;
 using ClaudeUsageMonitor.App.Messaging;
 using ClaudeUsageMonitor.Core.Models;
+using ClaudeUsageMonitor.Core.RateLimit;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 
@@ -14,6 +15,7 @@ public partial class WidgetViewModel : ObservableObject, IRecipient<RateLimitUpd
     private static readonly Brush StaleBrush = Freeze(new SolidColorBrush(Color.FromRgb(0x8C, 0x8C, 0x8C)));
 
     private readonly MonitorSettings _settings;
+    private readonly BurnRateEstimator _estimator;
     private DateTimeOffset? _fiveHourResetsAt;
     private DateTimeOffset? _sevenDayResetsAt;
 
@@ -38,9 +40,14 @@ public partial class WidgetViewModel : ObservableObject, IRecipient<RateLimitUpd
     [ObservableProperty]
     private bool _isStale = true;
 
-    public WidgetViewModel(MonitorSettings settings)
+    /// <summary>현재 속도 기준 5시간 한도 소진 예상 (예: "~1h 20m"). 표시 조건 미달이면 빈 문자열.</summary>
+    [ObservableProperty]
+    private string _exhaustionText = "";
+
+    public WidgetViewModel(MonitorSettings settings, BurnRateEstimator estimator)
     {
         _settings = settings;
+        _estimator = estimator;
         WeakReferenceMessenger.Default.Register(this);
     }
 
@@ -66,12 +73,36 @@ public partial class WidgetViewModel : ObservableObject, IRecipient<RateLimitUpd
         Tick(DateTimeOffset.UtcNow);
     }
 
-    /// <summary>1초 타이머에서 호출 — 리셋 카운트다운 갱신.</summary>
+    /// <summary>1초 타이머에서 호출 — 리셋 카운트다운/소진 예측 갱신.</summary>
     public void Tick(DateTimeOffset now)
     {
         FiveHourResetText = FormatCountdown(_fiveHourResetsAt, now);
         SevenDayResetText = FormatCountdown(_sevenDayResetsAt, now);
+        ExhaustionText = BuildExhaustionText(now);
     }
+
+    /// <summary>리셋 전에 한도가 소진될 것으로 예측될 때만 표시.</summary>
+    private string BuildExhaustionText(DateTimeOffset now)
+    {
+        if (!_settings.ShowExhaustionPrediction || IsStale)
+        {
+            return "";
+        }
+        if (_estimator.EstimateTimeToExhaustion(now) is not { } eta)
+        {
+            return "";
+        }
+        if (_fiveHourResetsAt is { } reset && now + eta >= reset)
+        {
+            return ""; // 소진 전에 리셋됨 — 경고 불필요
+        }
+        return eta <= TimeSpan.Zero ? "소진 임박" : "소진 ~" + FormatDuration(eta);
+    }
+
+    private static string FormatDuration(TimeSpan span) =>
+        span.TotalHours >= 1
+            ? $"{(int)span.TotalHours}h {span.Minutes}m"
+            : $"{Math.Max(1, span.Minutes)}m";
 
     private Brush PickBrush(double pct, bool stale)
     {

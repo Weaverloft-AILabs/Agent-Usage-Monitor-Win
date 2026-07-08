@@ -36,7 +36,10 @@ public partial class DashboardViewModel : ObservableObject,
 
     private readonly LiveSessionService _sessions;
     private readonly PricingService _pricing;
+    private readonly MonitorSettings _settings;
+    private readonly BurnRateEstimator _estimator;
     private RollupData _rollup = new();
+    private DateTimeOffset? _fiveHourResetsAt;
 
     [ObservableProperty]
     private double _fiveHourPct;
@@ -83,16 +86,24 @@ public partial class DashboardViewModel : ObservableObject,
     [ObservableProperty]
     private SolidColorPaint _legendTextPaint = new(new SKColor(0xC8, 0xC8, 0xD8));
 
+    /// <summary>현재 속도 기준 5시간 한도 소진 예측 문구. 조건 미달이면 빈 문자열(숨김).</summary>
+    [ObservableProperty]
+    private string _exhaustionNote = "";
+
     public ObservableCollection<LiveSessionItem> LiveSessions { get; } = [];
 
     public DashboardViewModel(
         LiveSessionService sessions,
         PricingService pricing,
         CredentialsReader credentials,
-        Services.RateLimitPollingService poller)
+        Services.RateLimitPollingService poller,
+        MonitorSettings settings,
+        BurnRateEstimator estimator)
     {
         _sessions = sessions;
         _pricing = pricing;
+        _settings = settings;
+        _estimator = estimator;
 
         var creds = credentials.TryRead();
         PlanBadge = creds is null
@@ -135,9 +146,36 @@ public partial class DashboardViewModel : ObservableObject,
             FiveHourPct = snapshot.FiveHourPct;
             SevenDayPct = snapshot.SevenDayPct;
             IsStale = snapshot.IsStale;
+            _fiveHourResetsAt = snapshot.FiveHourResetsAt;
             FiveHourResetText = snapshot.FiveHourResetsAt is { } f ? f.ToLocalTime().ToString("HH:mm") + " 리셋" : "-";
             SevenDayResetText = snapshot.SevenDayResetsAt is { } s ? s.ToLocalTime().ToString("MM/dd HH:mm") + " 리셋" : "-";
+            ExhaustionNote = BuildExhaustionNote(DateTimeOffset.UtcNow);
         });
+    }
+
+    /// <summary>리셋 전에 한도가 소진될 것으로 예측될 때만 문구 표시.</summary>
+    private string BuildExhaustionNote(DateTimeOffset now)
+    {
+        if (!_settings.ShowExhaustionPrediction || IsStale)
+        {
+            return "";
+        }
+        if (_estimator.EstimateTimeToExhaustion(now) is not { } eta)
+        {
+            return "";
+        }
+        if (_fiveHourResetsAt is { } reset && now + eta >= reset)
+        {
+            return "";
+        }
+        if (eta <= TimeSpan.Zero)
+        {
+            return "현재 속도로 곧 5시간 한도 소진";
+        }
+        var text = eta.TotalHours >= 1
+            ? $"{(int)eta.TotalHours}시간 {eta.Minutes}분"
+            : $"{Math.Max(1, eta.Minutes)}분";
+        return $"현재 속도로 약 {text} 후 한도 소진 예상";
     }
 
     public void Receive(RollupUpdatedMessage message)
@@ -210,6 +248,14 @@ public partial class DashboardViewModel : ObservableObject,
                 Values = values,
                 ScalesYAt = 0,
                 Fill = new SolidColorPaint(Palette[i % Palette.Length]),
+                // 토큰 수치 라벨 — 1M 미만 세그먼트는 겹침 방지를 위해 생략
+                DataLabelsPaint = new SolidColorPaint(SKColors.White),
+                DataLabelsSize = 10,
+                DataLabelsPosition = LiveChartsCore.Measure.DataLabelsPosition.Middle,
+                DataLabelsFormatter = point =>
+                    point.Coordinate.PrimaryValue >= 1_000_000
+                        ? FormatTokens((long)point.Coordinate.PrimaryValue)
+                        : "",
             });
         }
 
@@ -230,13 +276,7 @@ public partial class DashboardViewModel : ObservableObject,
 
         ApplyChart(
             [
-                new ColumnSeries<double>
-                {
-                    Name = "토큰",
-                    Values = tokens,
-                    ScalesYAt = 0,
-                    Fill = new SolidColorPaint(Palette[0]),
-                },
+                MakeTokenColumns(tokens, Palette[0]),
                 MakeCostLine(costs),
             ],
             labels,
@@ -253,19 +293,28 @@ public partial class DashboardViewModel : ObservableObject,
 
         ApplyChart(
             [
-                new ColumnSeries<double>
-                {
-                    Name = "토큰",
-                    Values = tokens,
-                    ScalesYAt = 0,
-                    Fill = new SolidColorPaint(Palette[1]),
-                },
+                MakeTokenColumns(tokens, Palette[1]),
                 MakeCostLine(costs),
             ],
             labels,
             months.Sum(m => m.Tokens.Total),
             costs.Sum());
     }
+
+    private ColumnSeries<double> MakeTokenColumns(double[] tokens, SKColor color) => new()
+    {
+        Name = "토큰",
+        Values = tokens,
+        ScalesYAt = 0,
+        Fill = new SolidColorPaint(color),
+        DataLabelsPaint = ChartTextPaint(),
+        DataLabelsSize = 10,
+        DataLabelsPosition = LiveChartsCore.Measure.DataLabelsPosition.Top,
+        DataLabelsFormatter = point =>
+            point.Coordinate.PrimaryValue > 0
+                ? FormatTokens((long)point.Coordinate.PrimaryValue)
+                : "",
+    };
 
     private void ApplyChart(IReadOnlyList<ISeries> series, string[] labels, long totalTokens, double totalCost)
     {
@@ -299,6 +348,14 @@ public partial class DashboardViewModel : ObservableObject,
         GeometryStroke = new SolidColorPaint(CostColor) { StrokeThickness = 2f },
         GeometryFill = new SolidColorPaint(new SKColor(0x1E, 0x1F, 0x29)),
         GeometrySize = 7,
+        // USD 수치 라벨 — $1 미만은 생략
+        DataLabelsPaint = new SolidColorPaint(CostColor),
+        DataLabelsSize = 10,
+        DataLabelsPosition = LiveChartsCore.Measure.DataLabelsPosition.Top,
+        DataLabelsFormatter = point =>
+            point.Coordinate.PrimaryValue >= 1
+                ? "$" + point.Coordinate.PrimaryValue.ToString("0", CultureInfo.InvariantCulture)
+                : "",
     };
 
     private double DayCost(DailyRollup day)

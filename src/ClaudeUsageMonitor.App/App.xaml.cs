@@ -164,6 +164,7 @@ public partial class App : Application
             sp.GetRequiredService<CredentialsReader>(), cliVersion: cliVersion));
         builder.Services.AddSingleton(new LiveSessionService(paths.SessionsDirectory));
         builder.Services.AddSingleton(new PricingService(paths.DataDirectory));
+        builder.Services.AddSingleton(new BurnRateEstimator());
         builder.Services.AddSingleton(sp => new IngestService(paths.ProjectsRoot, paths.DataDirectory));
         builder.Services.AddHostedService(sp => sp.GetRequiredService<IngestService>());
         builder.Services.AddSingleton<RateLimitPollingService>();

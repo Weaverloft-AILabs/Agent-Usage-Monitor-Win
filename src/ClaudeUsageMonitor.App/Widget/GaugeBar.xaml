@@ -15,5 +15,8 @@
     <TextBlock x:Name="ResetTextBlock" FontSize="9"
                Foreground="{DynamicResource WidgetTextDimBrush}"
                VerticalAlignment="Center" Margin="3,0,0,0" MinWidth="34"/>
+    <TextBlock x:Name="PredictionTextBlock" FontSize="9" FontWeight="SemiBold"
+               Foreground="{DynamicResource PredictionBrush}"
+               VerticalAlignment="Center" Margin="4,0,0,0" Visibility="Collapsed"/>
   </StackPanel>
 </UserControl>
