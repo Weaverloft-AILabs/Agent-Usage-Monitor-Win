@@ -76,6 +76,31 @@ public sealed class LiveSessionService
         }
     }
 
+    /// <summary>세션 레지스트리에서 로컬 Claude Code CLI 버전을 감지 (usage API User-Agent용).</summary>
+    public static string? DetectCliVersion(string sessionsDirectory)
+    {
+        try
+        {
+            if (!Directory.Exists(sessionsDirectory))
+            {
+                return null;
+            }
+            foreach (var file in Directory.EnumerateFiles(sessionsDirectory, "*.json")
+                         .OrderByDescending(File.GetLastWriteTimeUtc))
+            {
+                var session = TryParse(file);
+                if (!string.IsNullOrEmpty(session?.Version))
+                {
+                    return session.Version;
+                }
+            }
+        }
+        catch (IOException)
+        {
+        }
+        return null;
+    }
+
     private static bool DefaultIsAlive(int pid)
     {
         try
