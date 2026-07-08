@@ -24,6 +24,12 @@ public static class TrayIconRenderer
             ringColor = Color.FromArgb(255, 140, 140, 140);
         }
 
+        // 안쪽 다크 원판 — 밝은 트레이 배경에서도 텍스트 대비 확보
+        using (var inner = new SolidBrush(Color.FromArgb(230, 28, 30, 40)))
+        {
+            g.FillEllipse(inner, 2, 2, size - 5, size - 5);
+        }
+
         // 배경 링 + 사용률 아크
         using (var back = new Pen(Color.FromArgb(70, ringColor), 4))
         {

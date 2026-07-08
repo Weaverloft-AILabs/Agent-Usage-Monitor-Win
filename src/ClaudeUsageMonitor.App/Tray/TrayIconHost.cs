@@ -30,6 +30,16 @@ public sealed class TrayIconHost : IDisposable
         };
 
         RefreshVisual();
+
+        // 코드 생성 아이콘은 명시적 등록이 없으면 표시되지 않는 경우가 있음
+        try
+        {
+            _icon.ForceCreate(enablesEfficiencyMode: false);
+        }
+        catch (InvalidOperationException)
+        {
+            // 이미 생성된 경우 무시
+        }
     }
 
     /// <summary>임계값 경고 풍선 알림.</summary>

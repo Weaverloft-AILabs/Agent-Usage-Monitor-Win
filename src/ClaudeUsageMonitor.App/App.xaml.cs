@@ -72,6 +72,7 @@ public partial class App : Application
         };
         _widgetController = new WidgetController(
             _widget, settings, _host.Services.GetRequiredService<SettingsStore>());
+        _widgetController.TaskbarRecreated += () => _tray?.Reinstall();
         _widgetController.ApplyMode(settings.Mode);
 
         _notifier = new ThresholdNotifier(settings, _tray);

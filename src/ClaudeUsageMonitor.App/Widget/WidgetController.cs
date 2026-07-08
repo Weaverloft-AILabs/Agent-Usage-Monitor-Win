@@ -26,6 +26,14 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
     private readonly DispatcherTimer _topmostTimer;
     private bool _hiddenByFullscreen;
 
+    // GC로 콜백이 수집되지 않도록 delegate를 필드로 유지 (필수)
+    private readonly NativeMethods.WinEventDelegate _foregroundChanged;
+    private IntPtr _winEventHook;
+    private uint _taskbarCreatedMessage;
+
+    /// <summary>Explorer 재시작으로 작업표시줄이 재생성됨 (트레이 아이콘 재설치 필요).</summary>
+    public event Action? TaskbarRecreated;
+
     public WidgetController(WidgetWindow window, MonitorSettings settings, SettingsStore settingsStore)
     {
         _window = window;
@@ -44,20 +52,29 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
 
         _window.SourceInitialized += (_, _) => HookWindowMessages();
 
+        // 작업표시줄도 topmost라 사용자 상호작용 시 위젯 위로 올라옴 —
+        // ① 포그라운드 변경 이벤트에서 즉시, ② 2초 주기로 topmost 재주장
         _topmostTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
-            Interval = TimeSpan.FromSeconds(30),
+            Interval = TimeSpan.FromSeconds(2),
         };
-        _topmostTimer.Tick += (_, _) =>
-        {
-            if (_window.IsVisible)
-            {
-                WindowStyling.ReassertTopmost(_window.Hwnd);
-            }
-        };
+        _topmostTimer.Tick += (_, _) => ReassertIfVisible();
         _topmostTimer.Start();
 
+        _foregroundChanged = (_, _, _, _, _, _, _) => ReassertIfVisible();
+        _winEventHook = NativeMethods.SetWinEventHook(
+            NativeMethods.EVENT_SYSTEM_FOREGROUND, NativeMethods.EVENT_SYSTEM_FOREGROUND,
+            IntPtr.Zero, _foregroundChanged, 0, 0, NativeMethods.WINEVENT_OUTOFCONTEXT);
+
         WeakReferenceMessenger.Default.Register(this);
+    }
+
+    private void ReassertIfVisible()
+    {
+        if (_window.IsVisible)
+        {
+            WindowStyling.ReassertTopmost(_window.Hwnd);
+        }
     }
 
     public void Receive(WidgetModeChangedMessage message) =>
@@ -178,6 +195,7 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
 
     private void HookWindowMessages()
     {
+        _taskbarCreatedMessage = NativeMethods.RegisterWindowMessage("TaskbarCreated");
         var source = HwndSource.FromHwnd(_window.Hwnd);
         source?.AddHook((IntPtr _, int msg, IntPtr _, IntPtr _, ref bool _) =>
         {
@@ -186,6 +204,18 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
             {
                 _window.Dispatcher.BeginInvoke(Dock, DispatcherPriority.Background);
             }
+            if (_taskbarCreatedMessage != 0 && (uint)msg == _taskbarCreatedMessage)
+            {
+                // Explorer 재시작 — 트레이 아이콘 재설치 + 재도킹
+                _window.Dispatcher.BeginInvoke(() =>
+                {
+                    TaskbarRecreated?.Invoke();
+                    if (_settings.Mode != WidgetMode.Hidden)
+                    {
+                        ApplyMode(_settings.Mode);
+                    }
+                }, DispatcherPriority.Background);
+            }
             return IntPtr.Zero;
         });
     }
@@ -193,6 +223,11 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
     public void Dispose()
     {
         _topmostTimer.Stop();
+        if (_winEventHook != IntPtr.Zero)
+        {
+            NativeMethods.UnhookWinEvent(_winEventHook);
+            _winEventHook = IntPtr.Zero;
+        }
         WeakReferenceMessenger.Default.Unregister<WidgetModeChangedMessage>(this);
     }
 }
