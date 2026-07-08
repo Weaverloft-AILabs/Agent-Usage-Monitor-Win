@@ -10,6 +10,7 @@ using ClaudeUsageMonitor.App.Tray;
 using ClaudeUsageMonitor.App.ViewModels;
 using ClaudeUsageMonitor.App.Widget;
 using CommunityToolkit.Mvvm.Messaging;
+using LiveChartsCore.SkiaSharpView;
 using ClaudeUsageMonitor.Core;
 using ClaudeUsageMonitor.Core.Ingest;
 using ClaudeUsageMonitor.Core.Pricing;
@@ -36,6 +37,14 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // LiveCharts 전역 초기화 — 차트 최초 생성 시점의 lazy auto-init 경합(간헐적 무렌더)을 피하기 위해
+        // 시작 시 명시 구성한다. AddDarkTheme "단독" 호출은 렌더러/매퍼 기본 설정을 파괴하므로
+        // 반드시 AddSkiaSharp + AddDefaultMappers와 함께 체인해야 한다.
+        LiveChartsCore.LiveCharts.Configure(config => config
+            .AddSkiaSharp()
+            .AddDefaultMappers()
+            .AddDarkTheme());
 
         _singleInstance = new SingleInstance();
         if (!_singleInstance.TryAcquire())

@@ -129,8 +129,10 @@
       </Border>
     </Grid>
 
-    <!-- 차트 -->
-    <lvc:CartesianChart Grid.Row="3"
+    <!-- 차트 (배경은 창 배경과 동일 톤) -->
+    <lvc:CartesianChart x:Name="UsageChart"
+                        Grid.Row="3"
+                        Background="#1E1F29"
                         Series="{Binding Series}"
                         XAxes="{Binding XAxes}"
                         YAxes="{Binding YAxes}"
