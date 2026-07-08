@@ -79,6 +79,16 @@ internal static class NativeMethods
     [DllImport("shell32.dll")]
     public static extern int SHQueryUserNotificationState(out QUERY_USER_NOTIFICATION_STATE state);
 
+    // ---- Shell windows (작업표시줄 내부 배치용) ----
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern IntPtr FindWindow(string? lpClassName, string? lpWindowName);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern IntPtr FindWindowEx(IntPtr hWndParent, IntPtr hWndChildAfter, string? lpszClass, string? lpszWindow);
+
+    [DllImport("user32.dll")]
+    public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
     // ---- Shell messages ----
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     public static extern uint RegisterWindowMessage(string lpString);

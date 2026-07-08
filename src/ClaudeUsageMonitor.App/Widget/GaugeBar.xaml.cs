@@ -6,7 +6,7 @@ namespace ClaudeUsageMonitor.App.Widget;
 
 public partial class GaugeBar : UserControl
 {
-    private const double BarWidth = 72;
+    private const double BarWidth = 56;
 
     public static readonly DependencyProperty LabelProperty = DependencyProperty.Register(
         nameof(Label), typeof(string), typeof(GaugeBar), new PropertyMetadata("", OnChanged));

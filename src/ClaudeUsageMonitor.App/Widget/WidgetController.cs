@@ -142,25 +142,37 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
         var width = _window.ActualWidth;
         var height = _window.ActualHeight;
 
-        switch (info.Edge)
+        if (info.AutoHide)
         {
-            case TaskbarEdge.Bottom:
-                _window.Left = ToDipX(info.Right) - width - DockMarginRight;
-                _window.Top = (info.AutoHide ? ToDipY(info.Bottom) : ToDipY(info.Top)) - height - DockGap;
-                break;
-            case TaskbarEdge.Top:
-                _window.Left = ToDipX(info.Right) - width - DockMarginRight;
-                _window.Top = ToDipY(info.Bottom) + DockGap;
-                break;
-            case TaskbarEdge.Left:
-                _window.Left = ToDipX(info.Right) + DockGap;
-                _window.Top = ToDipY(info.Bottom) - height - DockMarginRight;
-                break;
-            case TaskbarEdge.Right:
-            default:
-                _window.Left = ToDipX(info.Left) - width - DockGap;
-                _window.Top = ToDipY(info.Bottom) - height - DockMarginRight;
-                break;
+            // 자동 숨김 작업표시줄은 rect가 화면 밖으로 밀려 있음 — 화면 하단 위에 표시
+            var workArea = SystemParameters.WorkArea;
+            _window.Left = workArea.Right - width - DockMarginRight;
+            _window.Top = workArea.Bottom - height - DockGap;
+            return;
+        }
+
+        if (info.Edge is TaskbarEdge.Bottom or TaskbarEdge.Top)
+        {
+            // 작업표시줄 "내부" 배치: 트레이 알림영역(시계) 왼쪽 빈 공간, 수직 중앙 정렬
+            var rightLimit = ToDipX(info.Right) - DockMarginRight;
+            var tray = TaskbarLocator.GetTrayNotifyRect();
+            if (tray is { } t && t.Left > info.Left && t.Left < info.Right)
+            {
+                rightLimit = ToDipX(t.Left) - DockGap;
+            }
+
+            _window.Left = rightLimit - width;
+            var taskbarTop = ToDipY(info.Top);
+            var taskbarHeight = ToDipY(info.Bottom) - taskbarTop;
+            _window.Top = taskbarTop + Math.Max(0, (taskbarHeight - height) / 2);
+        }
+        else
+        {
+            // 좌/우 세로 작업표시줄: 내부 하단(시계 위) 중앙 정렬
+            var taskbarLeft = ToDipX(info.Left);
+            var taskbarWidth = ToDipX(info.Right) - taskbarLeft;
+            _window.Left = taskbarLeft + Math.Max(0, (taskbarWidth - width) / 2);
+            _window.Top = ToDipY(info.Bottom) - height - 160;
         }
     }
 

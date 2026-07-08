@@ -66,7 +66,10 @@ public partial class App : Application
         _tray = new TrayIconHost(trayViewModel);
 
         var settings = _host.Services.GetRequiredService<Core.Models.MonitorSettings>();
-        _widget = new WidgetWindow(_host.Services.GetRequiredService<WidgetViewModel>());
+        _widget = new WidgetWindow(_host.Services.GetRequiredService<WidgetViewModel>())
+        {
+            ContextMenu = TrayMenuFactory.Create(trayViewModel), // 트레이와 동일 메뉴
+        };
         _widgetController = new WidgetController(
             _widget, settings, _host.Services.GetRequiredService<SettingsStore>());
         _widgetController.ApplyMode(settings.Mode);

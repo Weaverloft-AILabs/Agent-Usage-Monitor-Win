@@ -34,6 +34,17 @@ public partial class WidgetWindow : Window
             WindowStyling.MakeToolWindowNoActivate(new WindowInteropHelper(this).Handle);
 
         MouseLeftButtonDown += OnDragStart;
+
+        // WS_EX_NOACTIVATE 창에서도 우클릭 메뉴가 확실히 열리도록 명시 처리
+        MouseRightButtonUp += (_, e) =>
+        {
+            if (ContextMenu is not null)
+            {
+                ContextMenu.PlacementTarget = this;
+                ContextMenu.IsOpen = true;
+                e.Handled = true;
+            }
+        };
     }
 
     public IntPtr Hwnd => new WindowInteropHelper(this).Handle;
