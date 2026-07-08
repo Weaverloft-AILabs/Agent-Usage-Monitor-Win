@@ -17,5 +17,12 @@ public readonly record struct TokenCounts(
         a.Cache1h + b.Cache1h,
         a.CacheRead + b.CacheRead);
 
+    public static TokenCounts operator -(TokenCounts a, TokenCounts b) => new(
+        a.Input - b.Input,
+        a.Output - b.Output,
+        a.Cache5m - b.Cache5m,
+        a.Cache1h - b.Cache1h,
+        a.CacheRead - b.CacheRead);
+
     public static TokenCounts Zero => default;
 }
