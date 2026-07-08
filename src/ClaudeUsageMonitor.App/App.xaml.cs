@@ -2,8 +2,10 @@ using System.IO;
 using System.Windows;
 using ClaudeUsageMonitor.App.Dashboard;
 using ClaudeUsageMonitor.App.Messaging;
+using ClaudeUsageMonitor.App.Interop;
 using ClaudeUsageMonitor.App.Notifications;
 using ClaudeUsageMonitor.App.Services;
+using ClaudeUsageMonitor.App.Startup;
 using ClaudeUsageMonitor.App.Tray;
 using ClaudeUsageMonitor.App.ViewModels;
 using ClaudeUsageMonitor.App.Widget;
@@ -28,10 +30,21 @@ public partial class App : Application
     private ThresholdNotifier? _notifier;
     private DashboardWindow? _dashboard;
     private Settings.SettingsWindow? _settingsWindow;
+    private SingleInstance? _singleInstance;
+    private FullscreenDetector? _fullscreenDetector;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        _singleInstance = new SingleInstance();
+        if (!_singleInstance.TryAcquire())
+        {
+            SingleInstance.SignalExisting();
+            Shutdown();
+            return;
+        }
+        _singleInstance.StartServer(() => Dispatcher.BeginInvoke(ShowDashboard));
 
         var paths = MonitorPaths.Default();
         Directory.CreateDirectory(paths.DataDirectory);
@@ -59,6 +72,11 @@ public partial class App : Application
         _widgetController.ApplyMode(settings.Mode);
 
         _notifier = new ThresholdNotifier(settings, _tray);
+
+        _fullscreenDetector = new FullscreenDetector();
+        _fullscreenDetector.FullscreenChanged += suppressed =>
+            _widgetController?.SetFullscreenSuppressed(suppressed);
+        _fullscreenDetector.Start();
 
         if (e.Args.Contains("--dashboard"))
         {
@@ -101,10 +119,12 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _fullscreenDetector?.Dispose();
         _notifier?.Dispose();
         _widgetController?.Dispose();
         _widget?.Close();
         _tray?.Dispose();
+        _singleInstance?.Dispose();
         if (_host is not null)
         {
             _host.StopAsync(TimeSpan.FromSeconds(3)).GetAwaiter().GetResult();
