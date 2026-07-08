@@ -71,7 +71,8 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
 
     private void ReassertIfVisible()
     {
-        if (_window.IsVisible)
+        // 메뉴가 열린 동안 재주장하면 위젯이 메뉴 위로 올라가 메뉴를 가림 — 반드시 건너뜀
+        if (_window.IsVisible && !_window.IsContextMenuOpen)
         {
             WindowStyling.ReassertTopmost(_window.Hwnd);
         }

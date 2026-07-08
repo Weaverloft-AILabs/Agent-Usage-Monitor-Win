@@ -49,6 +49,9 @@ public partial class WidgetWindow : Window
 
     public IntPtr Hwnd => new WindowInteropHelper(this).Handle;
 
+    /// <summary>컨텍스트 메뉴가 열려 있는 동안 topmost 재주장을 멈추기 위한 플래그.</summary>
+    public bool IsContextMenuOpen => ContextMenu is { IsOpen: true };
+
     private void OnDragStart(object sender, MouseButtonEventArgs e)
     {
         if (!AllowDrag)

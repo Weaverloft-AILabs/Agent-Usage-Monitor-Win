@@ -85,7 +85,8 @@ public partial class DashboardViewModel : ObservableObject,
     public DashboardViewModel(
         LiveSessionService sessions,
         PricingService pricing,
-        CredentialsReader credentials)
+        CredentialsReader credentials,
+        Services.RateLimitPollingService poller)
     {
         _sessions = sessions;
         _pricing = pricing;
@@ -97,6 +98,12 @@ public partial class DashboardViewModel : ObservableObject,
 
         WeakReferenceMessenger.Default.Register<RateLimitUpdatedMessage>(this);
         WeakReferenceMessenger.Default.Register<RollupUpdatedMessage>(this);
+
+        // VM이 대시보드 최초 오픈 시점에 생성되므로, 그 이전에 발행된 폴링 결과를 즉시 반영
+        if (poller.Current is { } lastState)
+        {
+            Receive(new RateLimitUpdatedMessage(lastState));
+        }
     }
 
     public void Receive(RateLimitUpdatedMessage message)
