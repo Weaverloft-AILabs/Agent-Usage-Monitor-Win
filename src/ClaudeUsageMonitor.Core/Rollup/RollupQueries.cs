@@ -43,19 +43,24 @@ public static class RollupQueries
     }
 
     /// <summary>주간 합계(월요일 시작). 반환 키는 해당 주 월요일 날짜.</summary>
-    public static IReadOnlyList<(DateOnly WeekStart, TokenCounts Tokens)> WeeklyTotals(this RollupData data)
+    public static IReadOnlyList<(DateOnly WeekStart, TokenCounts Tokens, Dictionary<string, TokenCounts> ByModel)> WeeklyTotals(this RollupData data)
     {
         return data.Days.Values
             .GroupBy(day => StartOfWeek(day.Date))
             .OrderBy(g => g.Key)
             .Select(g =>
             {
+                var byModel = new Dictionary<string, TokenCounts>(StringComparer.Ordinal);
                 var total = TokenCounts.Zero;
                 foreach (var day in g)
                 {
-                    total += day.TotalTokens;
+                    foreach (var (model, usage) in day.ByModel)
+                    {
+                        byModel[model] = byModel.TryGetValue(model, out var t) ? t + usage.Tokens : usage.Tokens;
+                        total += usage.Tokens;
+                    }
                 }
-                return (g.Key, total);
+                return (g.Key, total, byModel);
             })
             .ToList();
     }

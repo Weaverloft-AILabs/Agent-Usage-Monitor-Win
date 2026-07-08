@@ -28,7 +28,17 @@ public sealed class IngestService : BackgroundService
 
     public event Action<RollupData>? RollupUpdated;
 
-    public RollupData CurrentRollup => _rollup;
+    private readonly object _loadLock = new();
+
+    /// <summary>스캔 전이라도 디스크의 기존 롤업을 즉시 제공 (대시보드 초기 표시용).</summary>
+    public RollupData CurrentRollup
+    {
+        get
+        {
+            EnsureLoaded();
+            return _rollup;
+        }
+    }
 
     public IngestService(
         string projectsRoot,
@@ -86,6 +96,7 @@ public sealed class IngestService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await ScanAllAsync(stoppingToken).ConfigureAwait(false); // 백필
+        RollupUpdated?.Invoke(_rollup); // 변경 유무와 무관하게 초기 1회 발행 (UI 초기 표시)
         StartWatcher();
 
         using var timer = new PeriodicTimer(_rescanInterval);
@@ -108,9 +119,16 @@ public sealed class IngestService : BackgroundService
         {
             return;
         }
-        _fileStates = _stateStore.Load();
-        _rollup = _rollupStore.Load();
-        _aggregator = new RollupAggregator(_rollup, _timeZone);
+        lock (_loadLock)
+        {
+            if (_aggregator is not null)
+            {
+                return;
+            }
+            _fileStates = _stateStore.Load();
+            _rollup = _rollupStore.Load();
+            _aggregator = new RollupAggregator(_rollup, _timeZone);
+        }
     }
 
     private bool IngestFile(string path)

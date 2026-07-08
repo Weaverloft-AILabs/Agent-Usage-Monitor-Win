@@ -1,0 +1,141 @@
+<Window x:Class="ClaudeUsageMonitor.App.Dashboard.DashboardWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
+        Title="Claude Usage Monitor"
+        Width="820" Height="600"
+        MinWidth="700" MinHeight="500"
+        Background="#1E1F29"
+        WindowStartupLocation="CenterScreen">
+  <Window.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    <Style TargetType="TextBlock">
+      <Setter Property="Foreground" Value="#E8E8F0"/>
+    </Style>
+    <Style x:Key="Card" TargetType="Border">
+      <Setter Property="Background" Value="#2A2C3A"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Padding" Value="12,8"/>
+      <Setter Property="Margin" Value="0,0,10,0"/>
+    </Style>
+  </Window.Resources>
+
+  <Grid Margin="16">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <!-- 상단: 게이지 + 플랜 + 버튼 -->
+    <Grid Grid.Row="0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+
+      <Border Grid.Column="0" Style="{StaticResource Card}">
+        <StackPanel>
+          <TextBlock Text="5시간 사용률" FontSize="12" Opacity="0.7"/>
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Text="{Binding FiveHourPct, StringFormat={}{0:0}%}" FontSize="30" FontWeight="Bold"/>
+            <TextBlock Text="{Binding FiveHourResetText}" FontSize="11" Opacity="0.6"
+                       VerticalAlignment="Bottom" Margin="10,0,0,6"/>
+          </StackPanel>
+          <ProgressBar Value="{Binding FiveHourPct, Mode=OneWay}" Maximum="100" Height="8"
+                       Background="#22FFFFFF" Foreground="#5AAAFA" BorderThickness="0"/>
+        </StackPanel>
+      </Border>
+
+      <Border Grid.Column="1" Style="{StaticResource Card}">
+        <StackPanel>
+          <TextBlock Text="주간 사용률" FontSize="12" Opacity="0.7"/>
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Text="{Binding SevenDayPct, StringFormat={}{0:0}%}" FontSize="30" FontWeight="Bold"/>
+            <TextBlock Text="{Binding SevenDayResetText}" FontSize="11" Opacity="0.6"
+                       VerticalAlignment="Bottom" Margin="10,0,0,6"/>
+          </StackPanel>
+          <ProgressBar Value="{Binding SevenDayPct, Mode=OneWay}" Maximum="100" Height="8"
+                       Background="#22FFFFFF" Foreground="#8A6CF0" BorderThickness="0"/>
+        </StackPanel>
+      </Border>
+
+      <StackPanel Grid.Column="2" VerticalAlignment="Center">
+        <Border Background="#33405A" CornerRadius="10" Padding="10,4" HorizontalAlignment="Right">
+          <TextBlock Text="{Binding PlanBadge}" FontSize="11"/>
+        </Border>
+        <TextBlock Text="(stale)" FontSize="10" Foreground="#F0A030" HorizontalAlignment="Right" Margin="0,4,0,0"
+                   Visibility="{Binding IsStale, Converter={StaticResource BoolToVis}}"/>
+        <Button x:Name="SettingsButton" Content="설정" Margin="0,8,0,0" Padding="14,5"
+                Background="#3A3D4F" Foreground="#E8E8F0" BorderThickness="0" Cursor="Hand"/>
+      </StackPanel>
+    </Grid>
+
+    <!-- 현재 프로젝트 -->
+    <StackPanel Grid.Row="1" Margin="0,14,0,0">
+      <TextBlock Text="현재 사용 중인 프로젝트" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6"/>
+      <ItemsControl ItemsSource="{Binding LiveSessions}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel/>
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Border Background="#2A2C3A" CornerRadius="6" Padding="10,5" Margin="0,0,8,6"
+                    ToolTip="{Binding FullPath}">
+              <StackPanel Orientation="Horizontal">
+                <Ellipse Width="7" Height="7" Fill="#4CC38A" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <TextBlock Text="{Binding ProjectName}" FontSize="12"/>
+                <TextBlock Text="{Binding Status}" FontSize="10" Opacity="0.6" Margin="6,0,0,0"
+                           VerticalAlignment="Center"/>
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <TextBlock Text="실행 중인 Claude Code 세션이 없습니다" FontSize="11" Opacity="0.5"
+                 Visibility="{Binding HasNoLiveSessions, Converter={StaticResource BoolToVis}}"/>
+    </StackPanel>
+
+    <!-- 기간 토글 + 합계 -->
+    <Grid Grid.Row="2" Margin="0,14,0,6">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <StackPanel Grid.Column="0" Orientation="Horizontal">
+        <RadioButton x:Name="DailyToggle" Content="일간" IsChecked="True" Margin="0,0,10,0"
+                     Foreground="#E8E8F0"/>
+        <RadioButton x:Name="WeeklyToggle" Content="주간" Margin="0,0,10,0" Foreground="#E8E8F0"/>
+        <RadioButton x:Name="MonthlyToggle" Content="월간" Foreground="#E8E8F0"/>
+      </StackPanel>
+      <Border Grid.Column="2" Style="{StaticResource Card}">
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Text="총 토큰 " Opacity="0.7" FontSize="12" VerticalAlignment="Center"/>
+          <TextBlock Text="{Binding PeriodTotalTokensText}" FontWeight="Bold" FontSize="15"/>
+        </StackPanel>
+      </Border>
+      <Border Grid.Column="3" Style="{StaticResource Card}" Margin="0">
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Text="총 비용 " Opacity="0.7" FontSize="12" VerticalAlignment="Center"/>
+          <TextBlock Text="{Binding PeriodTotalCostText}" FontWeight="Bold" FontSize="15" Foreground="#7BD88F"/>
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <!-- 차트 -->
+    <lvc:CartesianChart Grid.Row="3"
+                        Series="{Binding Series}"
+                        XAxes="{Binding XAxes}"
+                        YAxes="{Binding YAxes}"
+                        LegendPosition="Top"/>
+
+    <TextBlock Grid.Row="4" Text="{Binding CoverageNote}" FontSize="10" Opacity="0.5" Margin="0,6,0,0"/>
+  </Grid>
+</Window>
