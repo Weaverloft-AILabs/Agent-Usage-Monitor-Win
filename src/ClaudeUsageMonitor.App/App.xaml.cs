@@ -3,6 +3,7 @@ using System.Windows;
 using ClaudeUsageMonitor.App.Services;
 using ClaudeUsageMonitor.App.Tray;
 using ClaudeUsageMonitor.App.ViewModels;
+using ClaudeUsageMonitor.App.Widget;
 using ClaudeUsageMonitor.Core;
 using ClaudeUsageMonitor.Core.Ingest;
 using ClaudeUsageMonitor.Core.Pricing;
@@ -18,6 +19,8 @@ public partial class App : Application
 {
     private IHost? _host;
     private TrayIconHost? _tray;
+    private WidgetWindow? _widget;
+    private WidgetController? _widgetController;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -35,10 +38,18 @@ public partial class App : Application
         var trayViewModel = _host.Services.GetRequiredService<TrayViewModel>();
         trayViewModel.ExitRequested += Shutdown;
         _tray = new TrayIconHost(trayViewModel);
+
+        var settings = _host.Services.GetRequiredService<Core.Models.MonitorSettings>();
+        _widget = new WidgetWindow(_host.Services.GetRequiredService<WidgetViewModel>());
+        _widgetController = new WidgetController(
+            _widget, settings, _host.Services.GetRequiredService<SettingsStore>());
+        _widgetController.ApplyMode(settings.Mode);
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _widgetController?.Dispose();
+        _widget?.Close();
         _tray?.Dispose();
         if (_host is not null)
         {
@@ -69,6 +80,7 @@ public partial class App : Application
         builder.Services.AddSingleton<RateLimitPollingService>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<RateLimitPollingService>());
         builder.Services.AddSingleton<TrayViewModel>();
+        builder.Services.AddSingleton<WidgetViewModel>();
 
         return builder.Build();
     }

@@ -1,0 +1,27 @@
+<Window x:Class="ClaudeUsageMonitor.App.Widget.WidgetWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:widget="clr-namespace:ClaudeUsageMonitor.App.Widget"
+        Title="Claude Usage"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        SizeToContent="WidthAndHeight">
+  <Border Background="#D91C1E28" CornerRadius="8" BorderBrush="#33FFFFFF" BorderThickness="1">
+    <StackPanel Orientation="Horizontal">
+      <widget:GaugeBar x:Name="FiveHourGauge" Label="5H"
+                       Percent="{Binding FiveHourPct}"
+                       BarBrush="{Binding FiveHourBrush}"
+                       ResetText="{Binding FiveHourResetText}"/>
+      <Rectangle Width="1" Fill="#26FFFFFF" Margin="2,6"/>
+      <widget:GaugeBar x:Name="SevenDayGauge" Label="7D"
+                       Percent="{Binding SevenDayPct}"
+                       BarBrush="{Binding SevenDayBrush}"
+                       ResetText="{Binding SevenDayResetText}"/>
+    </StackPanel>
+  </Border>
+</Window>
