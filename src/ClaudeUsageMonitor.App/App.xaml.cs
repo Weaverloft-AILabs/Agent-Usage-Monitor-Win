@@ -69,12 +69,14 @@ public partial class App : Application
         // 가격표 갱신은 부트 지연을 막기 위해 백그라운드로
         _ = _host.Services.GetRequiredService<PricingService>().RefreshAsync();
 
+        var settings = _host.Services.GetRequiredService<Core.Models.MonitorSettings>();
+        Theming.ThemeManager.Initialize(settings.Theme);
+
         var trayViewModel = _host.Services.GetRequiredService<TrayViewModel>();
         trayViewModel.ExitRequested += Shutdown;
         trayViewModel.DashboardRequested += ShowDashboard;
         _tray = new TrayIconHost(trayViewModel);
 
-        var settings = _host.Services.GetRequiredService<Core.Models.MonitorSettings>();
         _widget = new WidgetWindow(_host.Services.GetRequiredService<WidgetViewModel>())
         {
             ContextMenu = TrayMenuFactory.Create(trayViewModel), // 트레이와 동일 메뉴

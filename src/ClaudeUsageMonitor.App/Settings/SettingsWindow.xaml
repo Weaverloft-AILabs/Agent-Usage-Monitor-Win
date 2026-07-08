@@ -4,11 +4,11 @@
         Title="설정 — Claude Usage Monitor"
         Width="420" SizeToContent="Height"
         ResizeMode="NoResize"
-        Background="#1E1F29"
+        Background="{DynamicResource WindowBackgroundBrush}"
         WindowStartupLocation="CenterOwner">
   <Window.Resources>
     <Style TargetType="TextBlock">
-      <Setter Property="Foreground" Value="#E8E8F0"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
       <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
   </Window.Resources>
@@ -24,14 +24,17 @@
         <RowDefinition Height="52"/>
         <RowDefinition Height="40"/>
         <RowDefinition Height="40"/>
+        <RowDefinition Height="40"/>
       </Grid.RowDefinitions>
 
-      <TextBlock Grid.Row="0" Grid.Column="0" Text="API 폴링 주기 (초)"/>
+      <TextBlock Grid.Row="0" Grid.Column="0" Text="새로고침 주기 (초)"/>
       <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
         <TextBox Text="{Binding PollIntervalSeconds, UpdateSourceTrigger=PropertyChanged}"
                  Width="80" VerticalContentAlignment="Center"
-                 Background="#2A2C3A" Foreground="#E8E8F0" BorderBrush="#44475A"/>
-        <TextBlock Text="최소 180초" FontSize="10" Opacity="0.5" Margin="8,0,0,0"/>
+                 Background="{DynamicResource InputBackgroundBrush}"
+                 Foreground="{DynamicResource TextPrimaryBrush}"
+                 BorderBrush="{DynamicResource InputBorderBrush}"/>
+        <TextBlock Text="최소 180초 (usage API 보호)" FontSize="10" Opacity="0.5" Margin="8,0,0,0"/>
       </StackPanel>
 
       <TextBlock Grid.Row="1" Grid.Column="0" Text="5시간 경고 임계값 (%)"/>
@@ -43,24 +46,33 @@
                    FontWeight="Bold"/>
       </StackPanel>
 
-      <TextBlock Grid.Row="2" Grid.Column="0" Text="표시 모드"/>
-      <ComboBox Grid.Row="2" Grid.Column="1" SelectedIndex="{Binding ModeIndex}"
+      <TextBlock Grid.Row="2" Grid.Column="0" Text="테마"/>
+      <ComboBox Grid.Row="2" Grid.Column="1" SelectedIndex="{Binding ThemeIndex}"
+                Width="180" HorizontalAlignment="Left" VerticalContentAlignment="Center">
+        <ComboBoxItem Content="다크"/>
+        <ComboBoxItem Content="라이트"/>
+        <ComboBoxItem Content="시스템 설정 따름"/>
+      </ComboBox>
+
+      <TextBlock Grid.Row="3" Grid.Column="0" Text="표시 모드"/>
+      <ComboBox Grid.Row="3" Grid.Column="1" SelectedIndex="{Binding ModeIndex}"
                 Width="180" HorizontalAlignment="Left" VerticalContentAlignment="Center">
         <ComboBoxItem Content="작업표시줄 도킹"/>
         <ComboBoxItem Content="플로팅"/>
         <ComboBoxItem Content="숨김"/>
       </ComboBox>
 
-      <TextBlock Grid.Row="3" Grid.Column="0" Text="Windows 시작 시 실행"/>
-      <CheckBox Grid.Row="3" Grid.Column="1" IsChecked="{Binding AutoStart}"
+      <TextBlock Grid.Row="4" Grid.Column="0" Text="Windows 시작 시 실행"/>
+      <CheckBox Grid.Row="4" Grid.Column="1" IsChecked="{Binding AutoStart}"
                 VerticalAlignment="Center"/>
     </Grid>
 
     <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
       <Button Content="저장" Command="{Binding SaveCommand}" Padding="20,6"
-              Background="#4A6DB5" Foreground="White" BorderThickness="0" Cursor="Hand"/>
+              Background="{DynamicResource AccentButtonBrush}" Foreground="White" BorderThickness="0" Cursor="Hand"/>
       <Button Content="데이터 폴더 열기" Command="{Binding OpenDataFolderCommand}" Padding="14,6"
-              Margin="10,0,0,0" Background="#3A3D4F" Foreground="#E8E8F0" BorderThickness="0"
+              Margin="10,0,0,0" Background="{DynamicResource ButtonBackgroundBrush}"
+              Foreground="{DynamicResource TextPrimaryBrush}" BorderThickness="0"
               Cursor="Hand"/>
       <TextBlock Text="{Binding StatusText}" Margin="12,0,0,0" FontSize="11" Foreground="#7BD88F"/>
     </StackPanel>

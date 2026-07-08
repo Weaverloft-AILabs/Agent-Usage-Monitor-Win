@@ -26,6 +26,9 @@ public partial class SettingsViewModel : ObservableObject
     private int _modeIndex;
 
     [ObservableProperty]
+    private int _themeIndex;
+
+    [ObservableProperty]
     private bool _autoStart;
 
     [ObservableProperty]
@@ -40,6 +43,7 @@ public partial class SettingsViewModel : ObservableObject
         _pollIntervalSeconds = settings.PollIntervalSeconds;
         _warnThresholdPct = settings.WarnThresholdPct;
         _modeIndex = (int)settings.Mode;
+        _themeIndex = (int)settings.Theme;
         _autoStart = AutoStartManager.IsEnabled();
     }
 
@@ -51,8 +55,11 @@ public partial class SettingsViewModel : ObservableObject
         _settings.PollIntervalSeconds = PollIntervalSeconds; // setter가 180 하한 강제
         _settings.WarnThresholdPct = Math.Clamp(WarnThresholdPct, 1, 100);
         _settings.Mode = (WidgetMode)Math.Clamp(ModeIndex, 0, 2);
+        _settings.Theme = (ThemePreference)Math.Clamp(ThemeIndex, 0, 2);
         _settings.AutoStart = AutoStart;
         _store.Save(_settings);
+
+        Theming.ThemeManager.Apply(_settings.Theme);
 
         PollIntervalSeconds = _settings.PollIntervalSeconds;
         WarnThresholdPct = _settings.WarnThresholdPct;

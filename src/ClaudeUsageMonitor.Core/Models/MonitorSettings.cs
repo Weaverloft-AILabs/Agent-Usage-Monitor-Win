@@ -7,6 +7,13 @@ public enum WidgetMode
     Hidden,
 }
 
+public enum ThemePreference
+{
+    Dark,
+    Light,
+    System,
+}
+
 /// <summary>앱 설정. settings.json으로 영속.</summary>
 public sealed class MonitorSettings
 {
@@ -28,9 +35,18 @@ public sealed class MonitorSettings
 
     public bool AutoStart { get; set; }
 
-    public bool DarkTheme { get; set; } = true;
+    public ThemePreference Theme { get; set; } = ThemePreference.Dark;
 
     /// <summary>Floating 모드 마지막 위치 (DIP). null이면 기본 위치.</summary>
     public double? FloatingLeft { get; set; }
     public double? FloatingTop { get; set; }
+
+    /// <summary>Taskbar 모드에서 위젯이 도킹된 모니터 장치명. null이면 주 모니터 기본 위치.</summary>
+    public string? TaskbarMonitorDevice { get; set; }
+
+    /// <summary>
+    /// Taskbar 내 위젯 위치 비율(0~1, 사용 가능 구간 내 시작점 기준).
+    /// 해상도/DPI가 달라져도 비율로 복원되므로 자동 적응한다. null이면 트레이 왼쪽 기본 위치.
+    /// </summary>
+    public double? TaskbarOffsetRatio { get; set; }
 }

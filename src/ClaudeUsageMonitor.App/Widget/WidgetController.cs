@@ -12,8 +12,9 @@ namespace ClaudeUsageMonitor.App.Widget;
 
 /// <summary>
 /// 위젯 창의 표시 모드(taskbar 도킹 / floating / 숨김)를 관리.
-/// - 도킹: ABM_GETTASKBARPOS 물리픽셀 → DIP 변환 후 작업표시줄 위 우측 정렬(공간 예약 없음).
-/// - WM_SETTINGCHANGE/WM_DISPLAYCHANGE/WM_DPICHANGED에서 재도킹, 30초마다 topmost 재주장.
+/// - 도킹: 작업표시줄(주/보조) 내부 오버레이. 드래그로 자유 이동 가능하며 드롭 시 가장 가까운
+///   작업표시줄에 스냅하고 위치를 (모니터 장치명, 비율)로 저장 — 해상도/DPI 변화에 자동 적응.
+/// - WM_SETTINGCHANGE/WM_DISPLAYCHANGE/WM_DPICHANGED에서 재도킹, 2초 주기 + 포그라운드 변경 시 topmost 재주장.
 /// </summary>
 public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChangedMessage>
 {
@@ -42,11 +43,17 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
 
         _window.Moved += (left, top) =>
         {
-            if (_settings.Mode == WidgetMode.Floating)
+            switch (_settings.Mode)
             {
-                _settings.FloatingLeft = left;
-                _settings.FloatingTop = top;
-                _settingsStore.Save(_settings);
+                case WidgetMode.Floating:
+                    _settings.FloatingLeft = left;
+                    _settings.FloatingTop = top;
+                    _settingsStore.Save(_settings);
+                    break;
+                case WidgetMode.Taskbar:
+                    // 드래그 종료 → 가장 가까운 작업표시줄(멀티모니터 포함)에 스냅 + 위치 비율 저장
+                    SnapToNearestTaskbar();
+                    break;
             }
         };
 
@@ -98,7 +105,7 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
 
             case WidgetMode.Taskbar:
             default:
-                _window.AllowDrag = false;
+                _window.AllowDrag = true; // 작업표시줄 내 자유 이동 (드롭 시 스냅)
                 _window.Show();
                 Dock();
                 WindowStyling.ReassertTopmost(_window.Hwnd);
@@ -144,54 +151,158 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
 
     private void Dock()
     {
-        var taskbar = TaskbarLocator.GetTaskbar();
         _window.UpdateLayout();
 
-        if (taskbar is not { } info)
+        var taskbars = TaskbarLocator.GetAllTaskbars();
+        if (taskbars.Count == 0)
         {
             PositionFloating();
             return;
         }
 
-        var dpi = VisualTreeHelper.GetDpi(_window);
-        double ToDipX(int px) => px / dpi.DpiScaleX;
-        double ToDipY(int px) => px / dpi.DpiScaleY;
+        var target = SelectTargetTaskbar(taskbars);
 
-        var width = _window.ActualWidth;
-        var height = _window.ActualHeight;
-
-        if (info.AutoHide)
+        // 자동 숨김 주 작업표시줄: rect가 화면 밖으로 밀려 있음 — 화면 하단 위 폴백
+        if (target.IsPrimary && TaskbarLocator.GetTaskbar() is { AutoHide: true })
         {
-            // 자동 숨김 작업표시줄은 rect가 화면 밖으로 밀려 있음 — 화면 하단 위에 표시
             var workArea = SystemParameters.WorkArea;
-            _window.Left = workArea.Right - width - DockMarginRight;
-            _window.Top = workArea.Bottom - height - DockGap;
+            _window.Left = workArea.Right - _window.ActualWidth - DockMarginRight;
+            _window.Top = workArea.Bottom - _window.ActualHeight - DockGap;
             return;
         }
 
-        if (info.Edge is TaskbarEdge.Bottom or TaskbarEdge.Top)
-        {
-            // 작업표시줄 "내부" 배치: 트레이 알림영역(시계) 왼쪽 빈 공간, 수직 중앙 정렬
-            var rightLimit = ToDipX(info.Right) - DockMarginRight;
-            var tray = TaskbarLocator.GetTrayNotifyRect();
-            if (tray is { } t && t.Left > info.Left && t.Left < info.Right)
-            {
-                rightLimit = ToDipX(t.Left) - DockGap;
-            }
+        // 물리 픽셀 기준 배치 (모니터별 DPI 차이는 이동 후 WM_DPICHANGED → 재도킹으로 수렴)
+        var dpi = VisualTreeHelper.GetDpi(_window);
+        var widthPx = (int)Math.Round(_window.ActualWidth * dpi.DpiScaleX);
+        var heightPx = (int)Math.Round(_window.ActualHeight * dpi.DpiScaleY);
 
-            _window.Left = rightLimit - width;
-            var taskbarTop = ToDipY(info.Top);
-            var taskbarHeight = ToDipY(info.Bottom) - taskbarTop;
-            _window.Top = taskbarTop + Math.Max(0, (taskbarHeight - height) / 2);
+        int x, y;
+        if (target.Edge is TaskbarEdge.Bottom or TaskbarEdge.Top)
+        {
+            var (spanStart, spanEnd) = HorizontalSpan(target, dpi.DpiScaleX);
+            var maxX = Math.Max(spanStart, spanEnd - widthPx);
+            x = _settings.TaskbarOffsetRatio is { } ratio
+                ? spanStart + (int)Math.Round(Math.Clamp(ratio, 0, 1) * (maxX - spanStart))
+                : maxX; // 기본: 트레이 왼쪽 (우측 정렬)
+            y = target.Top + Math.Max(0, (target.Height - heightPx) / 2);
         }
         else
         {
-            // 좌/우 세로 작업표시줄: 내부 하단(시계 위) 중앙 정렬
-            var taskbarLeft = ToDipX(info.Left);
-            var taskbarWidth = ToDipX(info.Right) - taskbarLeft;
-            _window.Left = taskbarLeft + Math.Max(0, (taskbarWidth - width) / 2);
-            _window.Top = ToDipY(info.Bottom) - height - 160;
+            // 좌/우 세로 작업표시줄: 비율은 세로 방향으로 적용, 기본은 하단(시계 위)
+            var gapPx = (int)Math.Round(DockGap * dpi.DpiScaleY);
+            var spanStart = target.Top + gapPx;
+            var spanEnd = target.Bottom - (int)Math.Round(160 * dpi.DpiScaleY);
+            var maxY = Math.Max(spanStart, spanEnd - heightPx);
+            y = _settings.TaskbarOffsetRatio is { } ratio
+                ? spanStart + (int)Math.Round(Math.Clamp(ratio, 0, 1) * (maxY - spanStart))
+                : maxY;
+            x = target.Left + Math.Max(0, (target.Width - widthPx) / 2);
         }
+
+        NativeMethods.SetWindowPos(_window.Hwnd, IntPtr.Zero, x, y, 0, 0,
+            NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE);
+    }
+
+    /// <summary>저장된 모니터의 작업표시줄 우선, 없으면(모니터 분리 등) 주 작업표시줄.</summary>
+    private TaskbarInstance SelectTargetTaskbar(IReadOnlyList<TaskbarInstance> taskbars)
+    {
+        if (_settings.TaskbarMonitorDevice is { } device)
+        {
+            foreach (var taskbar in taskbars)
+            {
+                if (taskbar.MonitorDevice == device)
+                {
+                    return taskbar;
+                }
+            }
+        }
+
+        foreach (var taskbar in taskbars)
+        {
+            if (taskbar.IsPrimary)
+            {
+                return taskbar;
+            }
+        }
+        return taskbars[0];
+    }
+
+    /// <summary>가로 작업표시줄 내 위젯이 놓일 수 있는 물리픽셀 X 구간 (주 모니터는 트레이 왼쪽까지).</summary>
+    private static (int Start, int End) HorizontalSpan(TaskbarInstance target, double dpiScaleX)
+    {
+        var gapPx = (int)Math.Round(DockGap * dpiScaleX);
+        var marginPx = (int)Math.Round(DockMarginRight * dpiScaleX);
+        var start = target.Left + gapPx;
+        var end = target.Right - marginPx;
+        if (target.IsPrimary &&
+            TaskbarLocator.GetTrayNotifyRect() is { } tray &&
+            tray.Left > target.Left && tray.Left < target.Right)
+        {
+            end = tray.Left - gapPx;
+        }
+        return (start, Math.Max(start, end));
+    }
+
+    /// <summary>
+    /// 드래그 종료 위치에서 가장 가까운 작업표시줄을 찾아 위치 비율을 저장하고 스냅.
+    /// 다른 모니터의 작업표시줄로도 이동 가능하며, 비율 저장이라 해상도/DPI가 달라도 복원된다.
+    /// </summary>
+    private void SnapToNearestTaskbar()
+    {
+        if (!NativeMethods.GetWindowRect(_window.Hwnd, out var rect))
+        {
+            return;
+        }
+
+        var taskbars = TaskbarLocator.GetAllTaskbars();
+        if (taskbars.Count == 0)
+        {
+            Dock();
+            return;
+        }
+
+        var centerX = (rect.Left + rect.Right) / 2;
+        var centerY = (rect.Top + rect.Bottom) / 2;
+        var target = taskbars[0];
+        var best = long.MaxValue;
+        foreach (var taskbar in taskbars)
+        {
+            var dx = (long)Math.Max(0, Math.Max(taskbar.Left - centerX, centerX - taskbar.Right));
+            var dy = (long)Math.Max(0, Math.Max(taskbar.Top - centerY, centerY - taskbar.Bottom));
+            var distance = dx * dx + dy * dy;
+            if (distance < best)
+            {
+                best = distance;
+                target = taskbar;
+            }
+        }
+
+        var dpi = VisualTreeHelper.GetDpi(_window);
+        double ratio;
+        if (target.Edge is TaskbarEdge.Bottom or TaskbarEdge.Top)
+        {
+            var (spanStart, spanEnd) = HorizontalSpan(target, dpi.DpiScaleX);
+            var maxX = Math.Max(spanStart, spanEnd - (rect.Right - rect.Left));
+            ratio = maxX == spanStart
+                ? 0
+                : Math.Clamp((double)(rect.Left - spanStart) / (maxX - spanStart), 0, 1);
+        }
+        else
+        {
+            var gapPx = (int)Math.Round(DockGap * dpi.DpiScaleY);
+            var spanStart = target.Top + gapPx;
+            var spanEnd = target.Bottom - (int)Math.Round(160 * dpi.DpiScaleY);
+            var maxY = Math.Max(spanStart, spanEnd - (rect.Bottom - rect.Top));
+            ratio = maxY == spanStart
+                ? 0
+                : Math.Clamp((double)(rect.Top - spanStart) / (maxY - spanStart), 0, 1);
+        }
+
+        _settings.TaskbarMonitorDevice = target.MonitorDevice;
+        _settings.TaskbarOffsetRatio = ratio;
+        _settingsStore.Save(_settings);
+
+        Dock();
     }
 
     private void HookWindowMessages()

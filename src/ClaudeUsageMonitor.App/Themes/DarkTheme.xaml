@@ -1,0 +1,19 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#1E1F29"/>
+  <SolidColorBrush x:Key="CardBackgroundBrush" Color="#2A2C3A"/>
+  <SolidColorBrush x:Key="TextPrimaryBrush" Color="#E8E8F0"/>
+  <SolidColorBrush x:Key="InputBackgroundBrush" Color="#2A2C3A"/>
+  <SolidColorBrush x:Key="InputBorderBrush" Color="#44475A"/>
+  <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="#3A3D4F"/>
+  <SolidColorBrush x:Key="AccentButtonBrush" Color="#4A6DB5"/>
+  <SolidColorBrush x:Key="BadgeBackgroundBrush" Color="#33405A"/>
+  <SolidColorBrush x:Key="ChartBackgroundBrush" Color="#1E1F29"/>
+  <SolidColorBrush x:Key="ProgressTrackBrush" Color="#22FFFFFF"/>
+  <SolidColorBrush x:Key="WidgetBackgroundBrush" Color="#D91C1E28"/>
+  <SolidColorBrush x:Key="WidgetBorderBrush" Color="#33FFFFFF"/>
+  <SolidColorBrush x:Key="WidgetTextBrush" Color="#DDFFFFFF"/>
+  <SolidColorBrush x:Key="WidgetTextStrongBrush" Color="#EEFFFFFF"/>
+  <SolidColorBrush x:Key="WidgetTextDimBrush" Color="#88FFFFFF"/>
+  <SolidColorBrush x:Key="GaugeTrackBrush" Color="#2EFFFFFF"/>
+</ResourceDictionary>

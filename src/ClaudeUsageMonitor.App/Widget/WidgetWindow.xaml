@@ -11,7 +11,8 @@
         ShowInTaskbar="False"
         ShowActivated="False"
         SizeToContent="WidthAndHeight">
-  <Border Background="#D91C1E28" CornerRadius="6" BorderBrush="#33FFFFFF" BorderThickness="1"
+  <Border Background="{DynamicResource WidgetBackgroundBrush}" CornerRadius="6"
+          BorderBrush="{DynamicResource WidgetBorderBrush}" BorderThickness="1"
           Padding="2,1">
     <!-- 5시간/주간 각 1줄, 세로 2줄 (작업표시줄 높이 안에 맞춤) -->
     <StackPanel Orientation="Vertical">

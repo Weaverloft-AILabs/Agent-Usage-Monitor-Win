@@ -80,6 +80,9 @@ public partial class DashboardViewModel : ObservableObject,
     [ObservableProperty]
     private bool _hasNoLiveSessions = true;
 
+    [ObservableProperty]
+    private SolidColorPaint _legendTextPaint = new(new SKColor(0xC8, 0xC8, 0xD8));
+
     public ObservableCollection<LiveSessionItem> LiveSessions { get; } = [];
 
     public DashboardViewModel(
@@ -104,7 +107,20 @@ public partial class DashboardViewModel : ObservableObject,
         {
             Receive(new RateLimitUpdatedMessage(lastState));
         }
+
+        // 테마 변경 시 차트 텍스트 페인트 재적용 (VM은 앱 수명 동안 유지 — 구독 해제 불필요)
+        Theming.ThemeManager.EffectiveThemeChanged += () => OnUi(() =>
+        {
+            LegendTextPaint = ChartTextPaint();
+            RebuildChart();
+        });
+        _legendTextPaint = ChartTextPaint();
     }
+
+    private static SolidColorPaint ChartTextPaint() => new(
+        Theming.ThemeManager.IsDarkEffective
+            ? new SKColor(0xC8, 0xC8, 0xD8)
+            : new SKColor(0x4A, 0x4D, 0x5E));
 
     public void Receive(RateLimitUpdatedMessage message)
     {
@@ -253,7 +269,7 @@ public partial class DashboardViewModel : ObservableObject,
 
     private void ApplyChart(IReadOnlyList<ISeries> series, string[] labels, long totalTokens, double totalCost)
     {
-        var labelPaint = new SolidColorPaint(new SKColor(0xC8, 0xC8, 0xD8));
+        var labelPaint = ChartTextPaint();
         Series = series.ToArray();
         XAxes = [new Axis { Labels = labels, LabelsRotation = 0, TextSize = 11, LabelsPaint = labelPaint }];
         YAxes =

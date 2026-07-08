@@ -5,15 +5,15 @@
         Title="Claude Usage Monitor"
         Width="820" Height="600"
         MinWidth="700" MinHeight="500"
-        Background="#1E1F29"
+        Background="{DynamicResource WindowBackgroundBrush}"
         WindowStartupLocation="CenterScreen">
   <Window.Resources>
     <BooleanToVisibilityConverter x:Key="BoolToVis"/>
     <Style TargetType="TextBlock">
-      <Setter Property="Foreground" Value="#E8E8F0"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
     <Style x:Key="Card" TargetType="Border">
-      <Setter Property="Background" Value="#2A2C3A"/>
+      <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
       <Setter Property="CornerRadius" Value="8"/>
       <Setter Property="Padding" Value="12,8"/>
       <Setter Property="Margin" Value="0,0,10,0"/>
@@ -46,7 +46,7 @@
                        VerticalAlignment="Bottom" Margin="10,0,0,6"/>
           </StackPanel>
           <ProgressBar Value="{Binding FiveHourPct, Mode=OneWay}" Maximum="100" Height="8"
-                       Background="#22FFFFFF" Foreground="#5AAAFA" BorderThickness="0"/>
+                       Background="{DynamicResource ProgressTrackBrush}" Foreground="#5AAAFA" BorderThickness="0"/>
         </StackPanel>
       </Border>
 
@@ -59,18 +59,19 @@
                        VerticalAlignment="Bottom" Margin="10,0,0,6"/>
           </StackPanel>
           <ProgressBar Value="{Binding SevenDayPct, Mode=OneWay}" Maximum="100" Height="8"
-                       Background="#22FFFFFF" Foreground="#8A6CF0" BorderThickness="0"/>
+                       Background="{DynamicResource ProgressTrackBrush}" Foreground="#8A6CF0" BorderThickness="0"/>
         </StackPanel>
       </Border>
 
       <StackPanel Grid.Column="2" VerticalAlignment="Center">
-        <Border Background="#33405A" CornerRadius="10" Padding="10,4" HorizontalAlignment="Right">
+        <Border Background="{DynamicResource BadgeBackgroundBrush}" CornerRadius="10" Padding="10,4" HorizontalAlignment="Right">
           <TextBlock Text="{Binding PlanBadge}" FontSize="11"/>
         </Border>
         <TextBlock Text="(stale)" FontSize="10" Foreground="#F0A030" HorizontalAlignment="Right" Margin="0,4,0,0"
                    Visibility="{Binding IsStale, Converter={StaticResource BoolToVis}}"/>
         <Button x:Name="SettingsButton" Content="설정" Margin="0,8,0,0" Padding="14,5"
-                Background="#3A3D4F" Foreground="#E8E8F0" BorderThickness="0" Cursor="Hand"/>
+                Background="{DynamicResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                BorderThickness="0" Cursor="Hand"/>
       </StackPanel>
     </Grid>
 
@@ -85,7 +86,7 @@
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
           <DataTemplate>
-            <Border Background="#2A2C3A" CornerRadius="6" Padding="10,5" Margin="0,0,8,6"
+            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" Padding="10,5" Margin="0,0,8,6"
                     ToolTip="{Binding FullPath}">
               <StackPanel Orientation="Horizontal">
                 <Ellipse Width="7" Height="7" Fill="#4CC38A" VerticalAlignment="Center" Margin="0,0,6,0"/>
@@ -111,9 +112,11 @@
       </Grid.ColumnDefinitions>
       <StackPanel Grid.Column="0" Orientation="Horizontal">
         <RadioButton x:Name="DailyToggle" Content="일간" IsChecked="True" Margin="0,0,10,0"
-                     Foreground="#E8E8F0"/>
-        <RadioButton x:Name="WeeklyToggle" Content="주간" Margin="0,0,10,0" Foreground="#E8E8F0"/>
-        <RadioButton x:Name="MonthlyToggle" Content="월간" Foreground="#E8E8F0"/>
+                     Foreground="{DynamicResource TextPrimaryBrush}"/>
+        <RadioButton x:Name="WeeklyToggle" Content="주간" Margin="0,0,10,0"
+                     Foreground="{DynamicResource TextPrimaryBrush}"/>
+        <RadioButton x:Name="MonthlyToggle" Content="월간"
+                     Foreground="{DynamicResource TextPrimaryBrush}"/>
       </StackPanel>
       <Border Grid.Column="2" Style="{StaticResource Card}">
         <StackPanel Orientation="Horizontal">
@@ -132,10 +135,11 @@
     <!-- 차트 (배경은 창 배경과 동일 톤) -->
     <lvc:CartesianChart x:Name="UsageChart"
                         Grid.Row="3"
-                        Background="#1E1F29"
+                        Background="{DynamicResource ChartBackgroundBrush}"
                         Series="{Binding Series}"
                         XAxes="{Binding XAxes}"
                         YAxes="{Binding YAxes}"
+                        LegendTextPaint="{Binding LegendTextPaint}"
                         LegendPosition="Top"/>
 
     <TextBlock Grid.Row="4" Text="{Binding CoverageNote}" FontSize="10" Opacity="0.5" Margin="0,6,0,0"/>
