@@ -18,6 +18,10 @@ namespace ClaudeUsageMonitor.App.ViewModels;
 
 public sealed record LiveSessionItem(string ProjectName, string FullPath, string Status);
 
+/// <summary>기간 내 모델별 비용 분해 행. Dot 색은 일간 차트의 모델 색과 동일 매핑.</summary>
+public sealed record ModelCostItem(
+    string Model, string TokensText, string CostText, string ShareText, System.Windows.Media.Brush Dot);
+
 public partial class DashboardViewModel : ObservableObject,
     IRecipient<RateLimitUpdatedMessage>, IRecipient<RollupUpdatedMessage>
 {
@@ -97,6 +101,12 @@ public partial class DashboardViewModel : ObservableObject,
     private string _exhaustionNote = "";
 
     public ObservableCollection<LiveSessionItem> LiveSessions { get; } = [];
+
+    /// <summary>선택된 기간의 모델별 토큰·비용 분해 (비용 내림차순).</summary>
+    public ObservableCollection<ModelCostItem> ModelBreakdown { get; } = [];
+
+    [ObservableProperty]
+    private bool _hasBreakdown;
 
     public DashboardViewModel(
         LiveSessionService sessions,
@@ -286,6 +296,16 @@ public partial class DashboardViewModel : ObservableObject,
         ApplyChart(seriesList, labels,
             range.Sum(d => d.TotalTokens.Total),
             costs.Sum());
+
+        var merged = new Dictionary<string, TokenCounts>();
+        foreach (var day in range)
+        {
+            foreach (var (model, usage) in day.ByModel)
+            {
+                merged[model] = merged.TryGetValue(model, out var t) ? t + usage.Tokens : usage.Tokens;
+            }
+        }
+        UpdateModelBreakdown(merged);
     }
 
     private void BuildWeekly()
@@ -303,6 +323,8 @@ public partial class DashboardViewModel : ObservableObject,
             labels,
             weeks.Sum(w => w.Tokens.Total),
             costs.Sum());
+
+        UpdateModelBreakdown(MergeByModel(weeks.Select(w => w.ByModel)));
     }
 
     private void BuildMonthly()
@@ -320,6 +342,48 @@ public partial class DashboardViewModel : ObservableObject,
             labels,
             months.Sum(m => m.Tokens.Total),
             costs.Sum());
+
+        UpdateModelBreakdown(MergeByModel(months.Select(m => m.ByModel)));
+    }
+
+    private static Dictionary<string, TokenCounts> MergeByModel(IEnumerable<Dictionary<string, TokenCounts>> parts)
+    {
+        var merged = new Dictionary<string, TokenCounts>();
+        foreach (var part in parts)
+        {
+            foreach (var (model, tokens) in part)
+            {
+                merged[model] = merged.TryGetValue(model, out var t) ? t + tokens : tokens;
+            }
+        }
+        return merged;
+    }
+
+    private void UpdateModelBreakdown(Dictionary<string, TokenCounts> byModel)
+    {
+        // 팔레트 인덱스는 일간 차트 시리즈와 동일한 모델명 오름차순 매핑 — 색 일관성 유지
+        var paletteOrder = byModel.Keys.OrderBy(m => m).ToList();
+        var rows = byModel
+            .Select(kv => (Model: kv.Key, Tokens: kv.Value, Cost: CostCalculator.Cost(kv.Value, _pricing.Resolve(kv.Key))))
+            .OrderByDescending(r => r.Cost)
+            .ToList();
+        var totalCost = rows.Sum(r => r.Cost);
+
+        ModelBreakdown.Clear();
+        foreach (var (model, tokens, cost) in rows)
+        {
+            var color = Palette[paletteOrder.IndexOf(model) % Palette.Length];
+            var dot = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(color.Red, color.Green, color.Blue));
+            dot.Freeze();
+            ModelBreakdown.Add(new ModelCostItem(
+                ShortModelName(model),
+                FormatTokens(tokens.Total),
+                "$" + ((double)cost).ToString("0.00", CultureInfo.InvariantCulture),
+                totalCost > 0 ? ((double)(cost / totalCost)).ToString("P0", CultureInfo.InvariantCulture) : "",
+                dot));
+        }
+        HasBreakdown = ModelBreakdown.Count > 0;
     }
 
     private ColumnSeries<double> MakeTokenColumns(double[] tokens, SKColor color) => new()

@@ -14,3 +14,6 @@ public sealed record WidgetModeChangedMessage(WidgetMode Mode);
 
 /// <summary>새 버전 발견 (GitHub Releases 주기 확인).</summary>
 public sealed record UpdateAvailableMessage(string Version);
+
+/// <summary>CLI 로그인 계정이 바뀜 (credentials 감시 + 프로필 uuid 대조).</summary>
+public sealed record AccountChangedMessage;

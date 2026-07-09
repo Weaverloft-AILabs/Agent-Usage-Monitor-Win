@@ -212,6 +212,10 @@ public partial class App : Application
         builder.Services.AddHostedService(sp => sp.GetRequiredService<IngestService>());
         builder.Services.AddSingleton<RateLimitPollingService>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<RateLimitPollingService>());
+        builder.Services.AddSingleton(sp => new ProfileClient(
+            sp.GetRequiredService<CredentialsReader>(), cliVersion: cliVersion));
+        builder.Services.AddSingleton<AccountWatchService>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<AccountWatchService>());
         builder.Services.AddSingleton<UpdateService>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<UpdateService>());
         builder.Services.AddSingleton<TrayViewModel>();

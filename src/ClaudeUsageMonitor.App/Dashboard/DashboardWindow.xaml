@@ -35,6 +35,7 @@
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
       <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
@@ -156,9 +157,44 @@
       </Border>
     </Grid>
 
+    <!-- 모델별 비용 분해 (선택 기간 기준, 비용 내림차순) -->
+    <StackPanel Grid.Row="3" Margin="0,2,0,6"
+                Visibility="{Binding HasBreakdown, Converter={StaticResource BoolToVis}}">
+      <ItemsControl ItemsSource="{Binding ModelBreakdown}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel/>
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <!-- 암시적 TextBlock 스타일은 DataTemplate 경계를 넘지 않으므로 명시 지정 -->
+            <Border Background="{DynamicResource CardBackgroundBrush}"
+                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
+                    CornerRadius="6" Padding="10,4" Margin="0,0,8,6">
+              <StackPanel Orientation="Horizontal">
+                <Ellipse Width="7" Height="7" Fill="{Binding Dot}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <TextBlock Text="{Binding Model}" FontSize="11"
+                           Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding TokensText}" FontSize="11" FontFamily="{StaticResource MonoFont}"
+                           Foreground="{DynamicResource TextPrimaryBrush}" Opacity="0.75"
+                           Margin="10,0,0,0" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding CostText}" FontSize="11" FontFamily="{StaticResource MonoFont}"
+                           FontWeight="SemiBold" Foreground="{DynamicResource SuccessTextBrush}"
+                           Margin="10,0,0,0" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding ShareText}" FontSize="10" FontFamily="{StaticResource MonoFont}"
+                           Foreground="{DynamicResource TextPrimaryBrush}" Opacity="0.55"
+                           Margin="8,0,0,0" VerticalAlignment="Center"/>
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+
     <!-- 차트 (배경은 창 배경과 동일 톤) -->
     <lvc:CartesianChart x:Name="UsageChart"
-                        Grid.Row="3"
+                        Grid.Row="4"
                         Background="{DynamicResource ChartBackgroundBrush}"
                         Series="{Binding Series}"
                         XAxes="{Binding XAxes}"
@@ -169,6 +205,6 @@
                         TooltipPosition="Top"
                         LegendPosition="Top"/>
 
-    <TextBlock Grid.Row="4" Text="{Binding CoverageNote}" FontSize="10" Opacity="0.5" Margin="0,6,0,0"/>
+    <TextBlock Grid.Row="5" Text="{Binding CoverageNote}" FontSize="10" Opacity="0.5" Margin="0,6,0,0"/>
   </Grid>
 </Window>
