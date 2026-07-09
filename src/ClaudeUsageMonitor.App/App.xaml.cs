@@ -31,6 +31,7 @@ public partial class App : Application
     private ThresholdNotifier? _notifier;
     private DashboardWindow? _dashboard;
     private Settings.SettingsWindow? _settingsWindow;
+    private Inquiry.InquiryWindow? _inquiryWindow;
     private SingleInstance? _singleInstance;
     private FullscreenDetector? _fullscreenDetector;
 
@@ -92,6 +93,7 @@ public partial class App : Application
         var trayViewModel = _host.Services.GetRequiredService<TrayViewModel>();
         trayViewModel.ExitRequested += Shutdown;
         trayViewModel.DashboardRequested += ShowDashboard;
+        trayViewModel.SettingsRequested += ShowSettings;
         _tray = new TrayIconHost(trayViewModel);
 
         _widget = new WidgetWindow(_host.Services.GetRequiredService<WidgetViewModel>())
@@ -129,6 +131,7 @@ public partial class App : Application
             viewModel.SetRollup(_host.Services.GetRequiredService<IngestService>().CurrentRollup);
             _dashboard = new DashboardWindow(viewModel);
             _dashboard.SettingsRequested += ShowSettings;
+            _dashboard.InquiryRequested += ShowInquiry;
         }
 
         _dashboard.Show();
@@ -144,9 +147,32 @@ public partial class App : Application
 
         _settingsWindow ??= new Settings.SettingsWindow(
             _host.Services.GetRequiredService<SettingsViewModel>());
-        _settingsWindow.Owner = _dashboard;
+        // 위젯 메뉴에서 대시보드 없이 열릴 수 있음 — 소유자 없으면 화면 중앙
+        _settingsWindow.Owner = _dashboard is { IsVisible: true } ? _dashboard : null;
+        if (_settingsWindow.Owner is null)
+        {
+            _settingsWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        }
         _settingsWindow.Show();
         _settingsWindow.Activate();
+    }
+
+    private void ShowInquiry()
+    {
+        if (_host is null)
+        {
+            return;
+        }
+
+        _inquiryWindow ??= new Inquiry.InquiryWindow(
+            _host.Services.GetRequiredService<InquiryViewModel>());
+        _inquiryWindow.Owner = _dashboard is { IsVisible: true } ? _dashboard : null;
+        if (_inquiryWindow.Owner is null)
+        {
+            _inquiryWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        }
+        _inquiryWindow.Show();
+        _inquiryWindow.Activate();
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -192,6 +218,7 @@ public partial class App : Application
         builder.Services.AddSingleton<WidgetViewModel>();
         builder.Services.AddSingleton<DashboardViewModel>();
         builder.Services.AddSingleton<SettingsViewModel>();
+        builder.Services.AddSingleton<InquiryViewModel>();
 
         return builder.Build();
     }

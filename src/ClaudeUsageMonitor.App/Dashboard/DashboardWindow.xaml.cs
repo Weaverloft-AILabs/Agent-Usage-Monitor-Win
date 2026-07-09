@@ -12,6 +12,7 @@ public partial class DashboardWindow : Window
     private DateTime _lastHoverKick;
 
     public event Action? SettingsRequested;
+    public event Action? InquiryRequested;
 
     public DashboardWindow(DashboardViewModel viewModel)
     {
@@ -23,6 +24,7 @@ public partial class DashboardWindow : Window
         WeeklyToggle.Checked += (_, _) => _viewModel.PeriodIndex = 1;
         MonthlyToggle.Checked += (_, _) => _viewModel.PeriodIndex = 2;
         SettingsButton.Click += (_, _) => SettingsRequested?.Invoke();
+        InquiryButton.Click += (_, _) => InquiryRequested?.Invoke();
 
         // Series 교체(기간 토글/롤업 갱신) 후에도 렌더가 고착될 수 있어 매번 킥 — 없으면 토글이 무반응
         _viewModel.PropertyChanged += (_, args) =>

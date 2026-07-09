@@ -7,7 +7,8 @@ using CommunityToolkit.Mvvm.Messaging;
 
 namespace ClaudeUsageMonitor.App.ViewModels;
 
-public partial class WidgetViewModel : ObservableObject, IRecipient<RateLimitUpdatedMessage>
+public partial class WidgetViewModel : ObservableObject,
+    IRecipient<RateLimitUpdatedMessage>, IRecipient<UpdateAvailableMessage>
 {
     private static readonly Brush NormalBrush = Freeze(new SolidColorBrush(Color.FromRgb(0x5A, 0xAA, 0xFA)));
     private static readonly Brush WarnBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xF0, 0xA0, 0x30)));
@@ -44,12 +45,19 @@ public partial class WidgetViewModel : ObservableObject, IRecipient<RateLimitUpd
     [ObservableProperty]
     private string _exhaustionText = "";
 
+    /// <summary>새 버전 존재 — 위젯에 업데이트 아이콘 표시.</summary>
+    [ObservableProperty]
+    private bool _updateAvailable;
+
     public WidgetViewModel(MonitorSettings settings, BurnRateEstimator estimator)
     {
         _settings = settings;
         _estimator = estimator;
-        WeakReferenceMessenger.Default.Register(this);
+        WeakReferenceMessenger.Default.Register<RateLimitUpdatedMessage>(this);
+        WeakReferenceMessenger.Default.Register<UpdateAvailableMessage>(this);
     }
+
+    public void Receive(UpdateAvailableMessage message) => UpdateAvailable = true;
 
     public void Receive(RateLimitUpdatedMessage message)
     {

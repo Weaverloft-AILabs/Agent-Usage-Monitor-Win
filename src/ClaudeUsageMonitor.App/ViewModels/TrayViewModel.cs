@@ -30,6 +30,7 @@ public partial class TrayViewModel : ObservableObject,
 
     public event Action? IconStateChanged;
     public event Action? DashboardRequested;
+    public event Action? SettingsRequested;
     public event Action? ExitRequested;
 
     public TrayViewModel(
@@ -95,6 +96,9 @@ public partial class TrayViewModel : ObservableObject,
 
     [RelayCommand]
     private void OpenDashboard() => DashboardRequested?.Invoke();
+
+    [RelayCommand]
+    private void OpenSettings() => SettingsRequested?.Invoke();
 
     [RelayCommand]
     private void SetThreshold(object? parameter)

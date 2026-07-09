@@ -86,6 +86,8 @@
                    Visibility="{Binding IsStale, Converter={StaticResource BoolToVis}}"/>
         <Button x:Name="SettingsButton" Content="설정" Margin="0,8,0,0"
                 Style="{StaticResource AppButton}" HorizontalAlignment="Right" MinWidth="76"/>
+        <Button x:Name="InquiryButton" Content="문의하기" Margin="0,6,0,0"
+                Style="{StaticResource AppButton}" HorizontalAlignment="Right" MinWidth="76"/>
       </StackPanel>
     </Grid>
 

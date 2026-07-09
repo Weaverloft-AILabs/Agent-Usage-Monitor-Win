@@ -11,21 +11,32 @@
         ShowInTaskbar="False"
         ShowActivated="False"
         SizeToContent="WidthAndHeight">
+  <Window.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+  </Window.Resources>
   <Border Background="{DynamicResource WidgetBackgroundBrush}" CornerRadius="6"
           BorderBrush="{DynamicResource WidgetBorderBrush}" BorderThickness="1"
           Padding="2,1">
-    <!-- 5시간/주간 각 1줄, 세로 2줄 (작업표시줄 높이 안에 맞춤) -->
-    <StackPanel Orientation="Vertical">
-      <widget:GaugeBar x:Name="FiveHourGauge" Label="5H"
-                       Percent="{Binding FiveHourPct}"
-                       BarBrush="{Binding FiveHourBrush}"
-                       ResetText="{Binding FiveHourResetText}"
-                       PredictionText="{Binding ExhaustionText}"
-                       ToolTip="소진 예측: 최근 사용 속도 기준 5시간 한도(100%) 도달까지 남은 시간"/>
-      <widget:GaugeBar x:Name="SevenDayGauge" Label="7D"
-                       Percent="{Binding SevenDayPct}"
-                       BarBrush="{Binding SevenDayBrush}"
-                       ResetText="{Binding SevenDayResetText}"/>
+    <StackPanel Orientation="Horizontal">
+      <!-- 5시간/주간 각 1줄, 세로 2줄 (작업표시줄 높이 안에 맞춤) -->
+      <StackPanel Orientation="Vertical">
+        <widget:GaugeBar x:Name="FiveHourGauge" Label="5H"
+                         Percent="{Binding FiveHourPct}"
+                         BarBrush="{Binding FiveHourBrush}"
+                         ResetText="{Binding FiveHourResetText}"
+                         PredictionText="{Binding ExhaustionText}"
+                         ToolTip="소진 예측: 최근 사용 속도 기준 5시간 한도(100%) 도달까지 남은 시간"/>
+        <widget:GaugeBar x:Name="SevenDayGauge" Label="7D"
+                         Percent="{Binding SevenDayPct}"
+                         BarBrush="{Binding SevenDayBrush}"
+                         ResetText="{Binding SevenDayResetText}"/>
+      </StackPanel>
+      <!-- 새 버전 알림 아이콘 (우클릭 메뉴에서 설치) -->
+      <TextBlock Text="⬆" FontSize="13" FontWeight="Bold"
+                 Foreground="{DynamicResource PredictionBrush}"
+                 VerticalAlignment="Center" Margin="2,0,4,0"
+                 Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVis}}"
+                 ToolTip="새 버전 사용 가능 — 우클릭 메뉴에서 업데이트 설치"/>
     </StackPanel>
   </Border>
 </Window>
