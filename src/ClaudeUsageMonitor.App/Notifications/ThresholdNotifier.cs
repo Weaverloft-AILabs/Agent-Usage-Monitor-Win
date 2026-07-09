@@ -30,6 +30,11 @@ public sealed class ThresholdNotifier :
 
     public void Receive(RateLimitUpdatedMessage message)
     {
+        if (!_settings.WarnNotificationEnabled)
+        {
+            return; // 알림 꺼짐 — 플래그도 소비하지 않아 다시 켜면 현재 윈도우에서 1회 발사 가능
+        }
+
         var snapshot = message.State.Snapshot;
         if (snapshot is null || snapshot.IsStale)
         {

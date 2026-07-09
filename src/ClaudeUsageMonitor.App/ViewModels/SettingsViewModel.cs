@@ -24,6 +24,9 @@ public partial class SettingsViewModel : ObservableObject, IRecipient<UpdateAvai
     private double _warnThresholdPct;
 
     [ObservableProperty]
+    private bool _warnNotificationEnabled;
+
+    [ObservableProperty]
     private int _modeIndex;
 
     [ObservableProperty]
@@ -60,6 +63,7 @@ public partial class SettingsViewModel : ObservableObject, IRecipient<UpdateAvai
 
         _pollIntervalSeconds = settings.PollIntervalSeconds;
         _warnThresholdPct = settings.WarnThresholdPct;
+        _warnNotificationEnabled = settings.WarnNotificationEnabled;
         _modeIndex = (int)settings.Mode;
         _themeIndex = (int)settings.Theme;
         _showExhaustionPrediction = settings.ShowExhaustionPrediction;
@@ -73,6 +77,7 @@ public partial class SettingsViewModel : ObservableObject, IRecipient<UpdateAvai
 
         _settings.PollIntervalSeconds = PollIntervalSeconds; // setter가 하한(20초) 강제
         _settings.WarnThresholdPct = Math.Clamp(WarnThresholdPct, 1, 100);
+        _settings.WarnNotificationEnabled = WarnNotificationEnabled;
         _settings.Mode = (WidgetMode)Math.Clamp(ModeIndex, 0, 2);
         _settings.Theme = (ThemePreference)Math.Clamp(ThemeIndex, 0, 2);
         _settings.ShowExhaustionPrediction = ShowExhaustionPrediction;

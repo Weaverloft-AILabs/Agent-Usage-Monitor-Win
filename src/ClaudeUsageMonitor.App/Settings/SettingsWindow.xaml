@@ -56,8 +56,32 @@
             <ColumnDefinition Width="Auto"/>
           </Grid.ColumnDefinitions>
           <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
+            <TextBlock Text="5시간 사용량 경고 알림" Style="{StaticResource RowLabel}"/>
+            <TextBlock Text="임계값 도달 시 트레이 풍선 알림 1회 (리셋·재시작·계정 변경 시 재무장)"
+                       Style="{StaticResource RowHint}"/>
+          </StackPanel>
+          <CheckBox x:Name="WarnToggle" Grid.Column="1" IsChecked="{Binding WarnNotificationEnabled}"/>
+        </Grid>
+
+        <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,2"/>
+
+        <Grid Margin="0,10" IsEnabled="{Binding WarnNotificationEnabled}">
+          <Grid.Style>
+            <Style TargetType="Grid">
+              <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                  <Setter Property="Opacity" Value="0.45"/>
+                </Trigger>
+              </Style.Triggers>
+            </Style>
+          </Grid.Style>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
             <TextBlock Text="5시간 경고 임계값" Style="{StaticResource RowLabel}"/>
-            <TextBlock Text="도달 시 트레이 알림 1회 (리셋마다 재무장)" Style="{StaticResource RowHint}"/>
+            <TextBlock Text="이 사용률에 도달하면 알림" Style="{StaticResource RowHint}"/>
           </StackPanel>
           <StackPanel Grid.Column="1" Orientation="Horizontal">
             <Slider Value="{Binding WarnThresholdPct}" Minimum="50" Maximum="99"
@@ -192,7 +216,7 @@
         <ColumnDefinition Width="Auto"/>
         <ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
-      <Button Grid.Column="0" Content="저장" Command="{Binding SaveCommand}"
+      <Button x:Name="SaveButton" Grid.Column="0" Content="저장" Command="{Binding SaveCommand}"
               Style="{StaticResource AccentButton}" MinWidth="88"/>
       <Button Grid.Column="1" Content="데이터 폴더 열기" Command="{Binding OpenDataFolderCommand}"
               Style="{StaticResource AppButton}" Margin="10,0,0,0"/>

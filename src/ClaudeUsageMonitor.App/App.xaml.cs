@@ -100,6 +100,7 @@ public partial class App : Application
         {
             ContextMenu = TrayMenuFactory.Create(trayViewModel), // 트레이와 동일 메뉴
         };
+        _widget.DashboardRequested += ShowDashboard; // 더블클릭 → 대시보드
         _widgetController = new WidgetController(
             _widget, settings, _host.Services.GetRequiredService<SettingsStore>());
         _widgetController.TaskbarRecreated += () => _tray?.Reinstall();

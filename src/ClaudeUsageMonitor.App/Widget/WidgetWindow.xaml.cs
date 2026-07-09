@@ -15,6 +15,9 @@ public partial class WidgetWindow : Window
     /// <summary>Floating 모드에서 드래그 이동이 끝났을 때(위치 저장용).</summary>
     public event Action<double, double>? Moved;
 
+    /// <summary>더블클릭 — 대시보드 열기 요청.</summary>
+    public event Action? DashboardRequested;
+
     public bool AllowDrag { get; set; }
 
     public WidgetWindow(WidgetViewModel viewModel)
@@ -66,6 +69,13 @@ public partial class WidgetWindow : Window
 
     private void OnDragStart(object sender, MouseButtonEventArgs e)
     {
+        if (e.ClickCount == 2)
+        {
+            DashboardRequested?.Invoke();
+            e.Handled = true;
+            return;
+        }
+
         if (!AllowDrag)
         {
             return;

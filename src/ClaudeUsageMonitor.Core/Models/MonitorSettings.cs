@@ -35,6 +35,9 @@ public sealed class MonitorSettings
     /// <summary>5시간 사용률 경고 임계값(%).</summary>
     public double WarnThresholdPct { get; set; } = 80;
 
+    /// <summary>5시간 사용량 경고 알림(트레이 풍선) 사용 여부. 끄면 임계값 도달에도 알리지 않음.</summary>
+    public bool WarnNotificationEnabled { get; set; } = true;
+
     public WidgetMode Mode { get; set; } = WidgetMode.Taskbar;
 
     public bool AutoStart { get; set; }
