@@ -12,14 +12,35 @@ public sealed class MonitorPaths
     {
         var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         var claudeDir = Path.Combine(profile, ".claude");
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+
+        // 설치 루트(%LOCALAPPDATA%\AgentUsageMonitor)와 겹치지 않도록 .Data 접미사 사용
+        var dataDirectory = Path.Combine(localAppData, "AgentUsageMonitor.Data");
+        MigrateLegacyDataDirectory(Path.Combine(localAppData, "ClaudeUsageMonitor"), dataDirectory);
+
         return new MonitorPaths
         {
-            DataDirectory = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "ClaudeUsageMonitor"),
+            DataDirectory = dataDirectory,
             ProjectsRoot = Path.Combine(claudeDir, "projects"),
             SessionsDirectory = Path.Combine(claudeDir, "sessions"),
             CredentialsPath = Path.Combine(claudeDir, ".credentials.json"),
         };
+    }
+
+    /// <summary>구 데이터 폴더(ClaudeUsageMonitor)를 새 위치로 1회 이전 — 롤업(월간 통계)·설정 보존.</summary>
+    private static void MigrateLegacyDataDirectory(string legacyDirectory, string newDirectory)
+    {
+        try
+        {
+            if (Directory.Exists(newDirectory) || !Directory.Exists(legacyDirectory))
+            {
+                return;
+            }
+            Directory.Move(legacyDirectory, newDirectory);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // 이동 실패(다른 프로세스가 잠금 등) — 새 폴더로 새로 시작. 치명적 아님
+        }
     }
 }
