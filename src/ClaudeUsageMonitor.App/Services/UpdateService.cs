@@ -13,7 +13,9 @@ namespace ClaudeUsageMonitor.App.Services;
 /// </summary>
 public sealed class UpdateService : BackgroundService
 {
-    private const string RepoUrl = "https://github.com/weavernoia1223/agent_usage_monitor";
+    // 2026-07-09 저장소 이관: 구 weavernoia1223/agent_usage_monitor → 신 Weaverloft-AILabs 조직.
+    // 구 저장소에는 v1.0.12 브리지 릴리스까지만 게시 — 이전 설치본이 그걸 타고 여기로 넘어온다.
+    private const string RepoUrl = "https://github.com/Weaverloft-AILabs/Agent-Usage-Monitor-Win";
     private static readonly TimeSpan InitialDelay = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan CheckInterval = TimeSpan.FromHours(4);
 
