@@ -9,7 +9,7 @@
     <AssemblyName>Agent Usage Monitor</AssemblyName>
     <Product>Agent Usage Monitor</Product>
     <AssemblyTitle>Agent Usage Monitor</AssemblyTitle>
-    <Version>1.0.3</Version>
+    <Version>1.0.4</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
     <!-- NU1701: SkiaSharp.Views.WPF(LiveCharts2 의존성)가 .NET Framework 대상 OpenTK를 참조 — 런타임 호환 확인됨 -->
