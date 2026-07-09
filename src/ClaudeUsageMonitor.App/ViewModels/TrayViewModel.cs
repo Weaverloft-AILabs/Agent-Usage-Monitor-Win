@@ -45,6 +45,12 @@ public partial class TrayViewModel : ObservableObject,
         _updater = updater;
         WeakReferenceMessenger.Default.Register<RateLimitUpdatedMessage>(this);
         WeakReferenceMessenger.Default.Register<UpdateAvailableMessage>(this);
+
+        // VM 생성 전에 발행된 첫 폴링 결과 재생 (위젯 VM과 동일한 시작 경합 대비)
+        if (poller.Current is { } last)
+        {
+            Receive(new RateLimitUpdatedMessage(last));
+        }
     }
 
     /// <summary>발견된 업데이트 버전 (없으면 null — 메뉴 항목 숨김).</summary>

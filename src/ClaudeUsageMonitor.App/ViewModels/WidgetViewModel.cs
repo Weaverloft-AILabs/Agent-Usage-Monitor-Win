@@ -49,18 +49,32 @@ public partial class WidgetViewModel : ObservableObject,
     [ObservableProperty]
     private bool _updateAvailable;
 
-    public WidgetViewModel(MonitorSettings settings, BurnRateEstimator estimator)
+    /// <summary>Claude Code CLI 미설치/로그인 정보 불가독 — 게이지 대신 경고 문구 표시.</summary>
+    [ObservableProperty]
+    private bool _cliMissing;
+
+    public WidgetViewModel(MonitorSettings settings, BurnRateEstimator estimator, Services.RateLimitPollingService poller)
     {
         _settings = settings;
         _estimator = estimator;
         WeakReferenceMessenger.Default.Register<RateLimitUpdatedMessage>(this);
         WeakReferenceMessenger.Default.Register<UpdateAvailableMessage>(this);
+
+        // VM 생성 전에 발행된 첫 폴링 결과 재생 — NoCredentials처럼 HTTP 없이 즉시 끝나는
+        // 폴링은 host.Start() 직후(위젯 생성 전)에 발행되어 유실될 수 있음
+        if (poller.Current is { } last)
+        {
+            Receive(new RateLimitUpdatedMessage(last));
+        }
     }
 
     public void Receive(UpdateAvailableMessage message) => UpdateAvailable = true;
 
     public void Receive(RateLimitUpdatedMessage message)
     {
+        // credentials 파일이 없거나 읽을 수 없음 = CLI 미설치/미로그인 — 경고 표시 (복구되면 자동 해제)
+        CliMissing = message.State.Status == RateLimitStatus.NoCredentials;
+
         var snapshot = message.State.Snapshot;
         if (snapshot is null)
         {

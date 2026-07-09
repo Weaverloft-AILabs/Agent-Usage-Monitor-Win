@@ -18,8 +18,22 @@
           BorderBrush="{DynamicResource WidgetBorderBrush}" BorderThickness="1"
           Padding="2,1">
     <StackPanel Orientation="Horizontal">
+      <!-- Claude Code CLI 미감지 경고 — 게이지 대신 표시, 로그인 감지 시 자동 복구 -->
+      <TextBlock Text="⚠ Claude Code 미감지" FontSize="12" FontWeight="SemiBold"
+                 Foreground="#F0A030" VerticalAlignment="Center" Margin="6,0"
+                 Visibility="{Binding CliMissing, Converter={StaticResource BoolToVis}}"
+                 ToolTip="Claude Code CLI가 설치되어 있지 않거나 로그인 정보를 읽을 수 없습니다.&#10;claude 명령으로 로그인하면 자동으로 복구됩니다."/>
       <!-- 5시간/주간 각 1줄, 세로 2줄 (작업표시줄 높이 안에 맞춤) -->
       <StackPanel Orientation="Vertical">
+        <StackPanel.Style>
+          <Style TargetType="StackPanel">
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding CliMissing}" Value="True">
+                <Setter Property="Visibility" Value="Collapsed"/>
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </StackPanel.Style>
         <widget:GaugeBar x:Name="FiveHourGauge" Label="5H"
                          Percent="{Binding FiveHourPct}"
                          BarBrush="{Binding FiveHourBrush}"

@@ -11,7 +11,10 @@ public sealed class MonitorPaths
     public static MonitorPaths Default()
     {
         var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var claudeDir = Path.Combine(profile, ".claude");
+        // CLAUDE_CONFIG_DIR 지원 (DESIGN §4.2) — CLI와 동일하게 설정 디렉터리 재지정 가능
+        var claudeDir = Environment.GetEnvironmentVariable("CLAUDE_CONFIG_DIR") is { Length: > 0 } custom
+            ? custom
+            : Path.Combine(profile, ".claude");
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 
         // 설치 루트(%LOCALAPPDATA%\AgentUsageMonitor)와 겹치지 않도록 .Data 접미사 사용
