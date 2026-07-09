@@ -35,14 +35,26 @@ public partial class WidgetWindow : Window
 
         MouseLeftButtonDown += OnDragStart;
 
-        // WS_EX_NOACTIVATE 창에서도 우클릭 메뉴가 확실히 열리도록 명시 처리
+        // WS_EX_NOACTIVATE 창에서도 우클릭 메뉴가 확실히 열리도록 명시 처리.
+        // NOACTIVATE 창은 포커스/캡처를 받지 않아 메뉴 밖 클릭으로 닫히지 않으므로,
+        // 메뉴를 열기 전 창을 포그라운드로 올려 light-dismiss(비활성화 시 닫힘)를 살린다.
         MouseRightButtonUp += (_, e) =>
         {
             if (ContextMenu is not null)
             {
+                NativeMethods.SetForegroundWindow(Hwnd);
                 ContextMenu.PlacementTarget = this;
                 ContextMenu.IsOpen = true;
                 e.Handled = true;
+            }
+        };
+
+        // 다른 곳 클릭 → 창 비활성화 → 열려 있는 메뉴 닫기
+        Deactivated += (_, _) =>
+        {
+            if (ContextMenu is { IsOpen: true } menu)
+            {
+                menu.IsOpen = false;
             }
         };
     }

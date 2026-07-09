@@ -65,6 +65,9 @@ internal static class NativeMethods
     public static extern bool SetWindowPos(
         IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
 
+    [DllImport("user32.dll")]
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
+
     // ---- Fullscreen detection ----
     public enum QUERY_USER_NOTIFICATION_STATE
     {
