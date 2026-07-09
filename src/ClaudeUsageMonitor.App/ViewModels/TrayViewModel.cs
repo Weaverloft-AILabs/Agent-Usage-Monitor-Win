@@ -91,8 +91,14 @@ public partial class TrayViewModel : ObservableObject,
         IconStateChanged?.Invoke();
     }
 
+    /// <summary>수동 새로고침 — 사용량 즉시 재폴링 + 업데이트 확인(비설치 실행이면 내부에서 no-op).
+    /// 업데이트 발견 시 UpdateAvailableMessage로 위젯 배지/메뉴 항목이 자동 갱신된다.</summary>
     [RelayCommand]
-    private void Refresh() => _poller.TriggerNow();
+    private async Task RefreshAsync()
+    {
+        _poller.TriggerNow();
+        await _updater.CheckAsync();
+    }
 
     [RelayCommand]
     private void OpenDashboard() => DashboardRequested?.Invoke();
