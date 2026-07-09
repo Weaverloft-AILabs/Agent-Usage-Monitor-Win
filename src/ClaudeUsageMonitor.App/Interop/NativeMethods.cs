@@ -135,5 +135,7 @@ internal static class NativeMethods
     public static extern bool UnhookWinEvent(IntPtr hWinEventHook);
 
     public const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
+    /// <summary>최상위 창 z-순서 변경 — 작업표시줄이 위젯 위로 올라오는 순간 포착용.</summary>
+    public const uint EVENT_OBJECT_REORDER = 0x8004;
     public const uint WINEVENT_OUTOFCONTEXT = 0x0000;
 }

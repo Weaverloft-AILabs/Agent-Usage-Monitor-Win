@@ -26,10 +26,13 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
     private readonly SettingsStore _settingsStore;
     private readonly DispatcherTimer _topmostTimer;
     private bool _hiddenByFullscreen;
+    private int _lastReassertTick;
 
     // GC로 콜백이 수집되지 않도록 delegate를 필드로 유지 (필수)
     private readonly NativeMethods.WinEventDelegate _foregroundChanged;
+    private readonly NativeMethods.WinEventDelegate _zOrderChanged;
     private IntPtr _winEventHook;
+    private IntPtr _reorderEventHook;
     private uint _taskbarCreatedMessage;
 
     /// <summary>Explorer 재시작으로 작업표시줄이 재생성됨 (트레이 아이콘 재설치 필요).</summary>
@@ -68,11 +71,12 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
             }
         };
 
-        // 작업표시줄도 topmost라 사용자 상호작용 시 위젯 위로 올라옴 —
-        // ① 포그라운드 변경 이벤트에서 즉시, ② 2초 주기로 topmost 재주장
+        // 작업표시줄도 topmost라 사용자 상호작용(오버플로 ^, 시계, 빈 영역 클릭 등) 시 위젯 위로 올라옴 —
+        // ① 포그라운드 변경 이벤트, ② 최상위 z-순서 변경(EVENT_OBJECT_REORDER — 포그라운드가 안 바뀌는
+        //    작업표시줄 상호작용까지 포착, 100ms 스로틀), ③ 1초 주기 폴백에서 topmost 재주장
         _topmostTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
-            Interval = TimeSpan.FromSeconds(2),
+            Interval = TimeSpan.FromSeconds(1),
         };
         _topmostTimer.Tick += (_, _) => ReassertIfVisible();
         _topmostTimer.Start();
@@ -82,6 +86,19 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
             NativeMethods.EVENT_SYSTEM_FOREGROUND, NativeMethods.EVENT_SYSTEM_FOREGROUND,
             IntPtr.Zero, _foregroundChanged, 0, 0, NativeMethods.WINEVENT_OUTOFCONTEXT);
 
+        _zOrderChanged = (_, _, _, _, _, _, _) =>
+        {
+            // z-순서 변경은 폭주할 수 있음(창 드래그 등) — 스로틀로 보호. 재주장 자체는 noop 수준으로 저렴
+            var now = Environment.TickCount;
+            if (now - _lastReassertTick >= 100)
+            {
+                ReassertIfVisible();
+            }
+        };
+        _reorderEventHook = NativeMethods.SetWinEventHook(
+            NativeMethods.EVENT_OBJECT_REORDER, NativeMethods.EVENT_OBJECT_REORDER,
+            IntPtr.Zero, _zOrderChanged, 0, 0, NativeMethods.WINEVENT_OUTOFCONTEXT);
+
         WeakReferenceMessenger.Default.Register(this);
     }
 
@@ -90,6 +107,7 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
         // 메뉴가 열린 동안 재주장하면 위젯이 메뉴 위로 올라가 메뉴를 가림 — 반드시 건너뜀
         if (_window.IsVisible && !_window.IsContextMenuOpen)
         {
+            _lastReassertTick = Environment.TickCount;
             WindowStyling.ReassertTopmost(_window.Hwnd);
         }
     }
@@ -348,6 +366,11 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
         {
             NativeMethods.UnhookWinEvent(_winEventHook);
             _winEventHook = IntPtr.Zero;
+        }
+        if (_reorderEventHook != IntPtr.Zero)
+        {
+            NativeMethods.UnhookWinEvent(_reorderEventHook);
+            _reorderEventHook = IntPtr.Zero;
         }
         WeakReferenceMessenger.Default.Unregister<WidgetModeChangedMessage>(this);
     }
