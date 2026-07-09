@@ -8,11 +8,13 @@ using CommunityToolkit.Mvvm.Messaging;
 
 namespace ClaudeUsageMonitor.App.ViewModels;
 
-public partial class TrayViewModel : ObservableObject, IRecipient<RateLimitUpdatedMessage>
+public partial class TrayViewModel : ObservableObject,
+    IRecipient<RateLimitUpdatedMessage>, IRecipient<UpdateAvailableMessage>
 {
     private readonly RateLimitPollingService _poller;
     private readonly MonitorSettings _settings;
     private readonly SettingsStore _settingsStore;
+    private readonly UpdateService _updater;
 
     [ObservableProperty]
     private string _tooltipText = "Agent Usage Monitor — 데이터 없음";
@@ -30,12 +32,36 @@ public partial class TrayViewModel : ObservableObject, IRecipient<RateLimitUpdat
     public event Action? DashboardRequested;
     public event Action? ExitRequested;
 
-    public TrayViewModel(RateLimitPollingService poller, MonitorSettings settings, SettingsStore settingsStore)
+    public TrayViewModel(
+        RateLimitPollingService poller,
+        MonitorSettings settings,
+        SettingsStore settingsStore,
+        UpdateService updater)
     {
         _poller = poller;
         _settings = settings;
         _settingsStore = settingsStore;
-        WeakReferenceMessenger.Default.Register(this);
+        _updater = updater;
+        WeakReferenceMessenger.Default.Register<RateLimitUpdatedMessage>(this);
+        WeakReferenceMessenger.Default.Register<UpdateAvailableMessage>(this);
+    }
+
+    /// <summary>발견된 업데이트 버전 (없으면 null — 메뉴 항목 숨김).</summary>
+    public string? UpdateVersion => _updater.AvailableVersionText;
+
+    public void Receive(UpdateAvailableMessage message) => OnPropertyChanged(nameof(UpdateVersion));
+
+    [RelayCommand]
+    private async Task InstallUpdateAsync()
+    {
+        try
+        {
+            await _updater.DownloadAndApplyAsync(); // 완료 시 앱이 재시작됨
+        }
+        catch (Exception ex) when (ex is System.Net.Http.HttpRequestException or System.IO.IOException)
+        {
+            // 네트워크/디스크 오류 — 다음 시도까지 무시 (메뉴에서 재시도 가능)
+        }
     }
 
     public MonitorSettings Settings => _settings;

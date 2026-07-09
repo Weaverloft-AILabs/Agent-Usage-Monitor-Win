@@ -15,6 +15,15 @@ public static class TrayMenuFactory
         var threshold = new MenuItem { Header = "5시간 경고 임계값" };
         var mode = new MenuItem { Header = "표시 모드" };
 
+        // 새 버전 발견 시에만 표시 (SyncChecks에서 갱신)
+        var update = new MenuItem
+        {
+            Visibility = System.Windows.Visibility.Collapsed,
+            FontWeight = System.Windows.FontWeights.SemiBold,
+        };
+        update.Click += (_, _) => viewModel.InstallUpdateCommand.Execute(null);
+        menu.Items.Add(update);
+
         menu.Items.Add(NewItem("새로고침", () => viewModel.RefreshCommand.Execute(null)));
         menu.Items.Add(NewItem("대시보드 열기", () => viewModel.OpenDashboardCommand.Execute(null)));
         menu.Items.Add(new Separator());
@@ -55,6 +64,16 @@ public static class TrayMenuFactory
 
         void SyncChecks()
         {
+            if (viewModel.UpdateVersion is { } version)
+            {
+                update.Header = $"⬆ v{version} 업데이트 설치";
+                update.Visibility = System.Windows.Visibility.Visible;
+            }
+            else
+            {
+                update.Visibility = System.Windows.Visibility.Collapsed;
+            }
+
             foreach (var item in threshold.Items.OfType<MenuItem>())
             {
                 item.IsChecked = item.Header is string h &&

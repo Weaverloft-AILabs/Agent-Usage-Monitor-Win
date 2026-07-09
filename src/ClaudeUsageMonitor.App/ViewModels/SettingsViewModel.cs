@@ -10,11 +10,12 @@ using CommunityToolkit.Mvvm.Messaging;
 
 namespace ClaudeUsageMonitor.App.ViewModels;
 
-public partial class SettingsViewModel : ObservableObject
+public partial class SettingsViewModel : ObservableObject, IRecipient<UpdateAvailableMessage>
 {
     private readonly MonitorSettings _settings;
     private readonly SettingsStore _store;
     private readonly MonitorPaths _paths;
+    private readonly Services.UpdateService _updater;
 
     [ObservableProperty]
     private int _pollIntervalSeconds;
@@ -37,11 +38,25 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string _statusText = "";
 
-    public SettingsViewModel(MonitorSettings settings, SettingsStore store, MonitorPaths paths)
+    /// <summary>발견된 새 버전 (빈 문자열이면 설치 버튼 숨김).</summary>
+    [ObservableProperty]
+    private string _updateVersionText = "";
+
+    [ObservableProperty]
+    private string _updateStatusText = "";
+
+    public string CurrentVersionText { get; }
+
+    public SettingsViewModel(
+        MonitorSettings settings, SettingsStore store, MonitorPaths paths, Services.UpdateService updater)
     {
         _settings = settings;
         _store = store;
         _paths = paths;
+        _updater = updater;
+        CurrentVersionText = "v" + updater.CurrentVersionText;
+        _updateVersionText = updater.AvailableVersionText ?? "";
+        WeakReferenceMessenger.Default.Register(this);
 
         _pollIntervalSeconds = settings.PollIntervalSeconds;
         _warnThresholdPct = settings.WarnThresholdPct;
@@ -85,6 +100,50 @@ public partial class SettingsViewModel : ObservableObject
         }
 
         StatusText = "저장되었습니다";
+    }
+
+    public void Receive(UpdateAvailableMessage message)
+    {
+        UpdateVersionText = message.Version;
+        UpdateStatusText = $"새 버전 v{message.Version} 사용 가능";
+    }
+
+    [RelayCommand]
+    private async Task CheckUpdateAsync()
+    {
+        if (!_updater.IsInstalled)
+        {
+            UpdateStatusText = "포터블/개발 실행 — 업데이트는 설치판에서 지원됩니다";
+            return;
+        }
+
+        UpdateStatusText = "확인 중...";
+        var found = await _updater.CheckAsync();
+        if (found)
+        {
+            UpdateVersionText = _updater.AvailableVersionText ?? "";
+            UpdateStatusText = $"새 버전 v{UpdateVersionText} 사용 가능";
+        }
+        else
+        {
+            UpdateVersionText = "";
+            UpdateStatusText = "최신 버전입니다";
+        }
+    }
+
+    [RelayCommand]
+    private async Task InstallUpdateAsync()
+    {
+        try
+        {
+            UpdateStatusText = "다운로드 중...";
+            await _updater.DownloadAndApplyAsync(p => UpdateStatusText = $"다운로드 중... {p}%");
+            // 성공 시 앱이 재시작되므로 여기 도달하지 않음
+        }
+        catch (Exception ex) when (ex is System.Net.Http.HttpRequestException or System.IO.IOException)
+        {
+            UpdateStatusText = "업데이트 실패 — 네트워크 상태 확인 후 다시 시도해 주세요";
+        }
     }
 
     [RelayCommand]

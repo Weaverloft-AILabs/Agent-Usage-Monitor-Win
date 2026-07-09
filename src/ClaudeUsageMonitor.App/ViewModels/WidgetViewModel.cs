@@ -129,6 +129,11 @@ public partial class WidgetViewModel : ObservableObject, IRecipient<RateLimitUpd
         {
             return "0m";
         }
+        if (remaining.TotalDays >= 1)
+        {
+            // 하루 이상(주간 리셋)은 일/시간으로 — 분은 생략 (예: 4d 4h)
+            return $"{(int)remaining.TotalDays}d {remaining.Hours}h";
+        }
         return remaining.TotalHours >= 1
             ? $"{(int)remaining.TotalHours}h {remaining.Minutes}m"
             : $"{remaining.Minutes}m";

@@ -11,3 +11,6 @@ public sealed record RollupUpdatedMessage(RollupData Rollup);
 
 /// <summary>위젯 표시 모드 변경.</summary>
 public sealed record WidgetModeChangedMessage(WidgetMode Mode);
+
+/// <summary>새 버전 발견 (GitHub Releases 주기 확인).</summary>
+public sealed record UpdateAvailableMessage(string Version);

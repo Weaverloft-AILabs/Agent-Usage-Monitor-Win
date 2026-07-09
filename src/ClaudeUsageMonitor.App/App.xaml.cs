@@ -186,6 +186,8 @@ public partial class App : Application
         builder.Services.AddHostedService(sp => sp.GetRequiredService<IngestService>());
         builder.Services.AddSingleton<RateLimitPollingService>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<RateLimitPollingService>());
+        builder.Services.AddSingleton<UpdateService>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<UpdateService>());
         builder.Services.AddSingleton<TrayViewModel>();
         builder.Services.AddSingleton<WidgetViewModel>();
         builder.Services.AddSingleton<DashboardViewModel>();
