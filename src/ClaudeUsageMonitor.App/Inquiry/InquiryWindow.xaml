@@ -7,44 +7,111 @@
         Background="{DynamicResource WindowBackgroundBrush}"
         WindowStartupLocation="CenterOwner">
   <Window.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolToVis"/>
     <Style TargetType="TextBlock">
       <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
+    <!-- 카드 내부 필드 라벨: 조용한 보조 텍스트 (eyebrow 코랄은 카드당 1회만) -->
+    <Style x:Key="FieldLabel" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Opacity" Value="0.7"/>
+      <Setter Property="Margin" Value="2,0,0,6"/>
+    </Style>
   </Window.Resources>
 
-  <StackPanel Margin="24,20">
+  <StackPanel Margin="24,20,24,16">
     <TextBlock Text="문의하기" FontSize="18" FontWeight="Bold" Margin="0,0,0,4"/>
-    <TextBlock Text="버그 신고, 기능 제안 등 무엇이든 보내주세요. 앱 버전 정보가 함께 전송됩니다."
+    <TextBlock Text="버그 신고나 개선 아이디어를 보내주세요. 답변은 입력하신 이메일로 드립니다."
                FontSize="11" Opacity="0.6" Margin="0,0,0,14" TextWrapping="Wrap"/>
 
-    <TextBlock Text="분류" Style="{StaticResource SectionLabel}"/>
-    <ComboBox SelectedIndex="{Binding CategoryIndex}" Width="170" HorizontalAlignment="Left"
-              Style="{StaticResource AppComboBox}" Margin="0,0,0,14">
-      <ComboBoxItem Content="버그제보"/>
-      <ComboBoxItem Content="개선요청"/>
-    </ComboBox>
+    <Border Style="{StaticResource SectionCard}" Padding="16,14">
+      <StackPanel>
+        <TextBlock Text="문의 내용" Style="{StaticResource SectionLabel}" Margin="2,0,0,10"/>
 
-    <TextBlock Text="제목" Style="{StaticResource SectionLabel}"/>
-    <TextBox Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"
-             Style="{StaticResource AppTextBox}" Margin="0,0,0,14"/>
+        <!-- 분류: 2택은 드롭다운 대신 세그먼트. 도트 색 = Dooray 전송 색(빨강/초록) -->
+        <Border Background="{DynamicResource SegmentTrackBrush}" CornerRadius="8"
+                HorizontalAlignment="Left" Margin="0,0,0,14">
+          <StackPanel Orientation="Horizontal">
+            <RadioButton x:Name="BugRadio" GroupName="InquiryCategory" Style="{StaticResource SegmentRadio}"
+                         IsChecked="{Binding IsBugCategory}">
+              <StackPanel Orientation="Horizontal">
+                <Ellipse Width="7" Height="7" Fill="{DynamicResource BugDotBrush}"
+                         VerticalAlignment="Center" Margin="0,1,6,0"/>
+                <TextBlock Text="버그제보"
+                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+              </StackPanel>
+            </RadioButton>
+            <RadioButton x:Name="ImproveRadio" GroupName="InquiryCategory" Style="{StaticResource SegmentRadio}"
+                         IsChecked="{Binding IsImprovementCategory}">
+              <StackPanel Orientation="Horizontal">
+                <Ellipse Width="7" Height="7" Fill="{DynamicResource ImproveDotBrush}"
+                         VerticalAlignment="Center" Margin="0,1,6,0"/>
+                <TextBlock Text="개선요청"
+                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+              </StackPanel>
+            </RadioButton>
+          </StackPanel>
+        </Border>
 
-    <TextBlock Text="내용" Style="{StaticResource SectionLabel}"/>
-    <TextBox Text="{Binding Content, UpdateSourceTrigger=PropertyChanged}"
-             Style="{StaticResource AppTextBox}"
-             AcceptsReturn="True" TextWrapping="Wrap"
-             VerticalScrollBarVisibility="Auto"
-             VerticalContentAlignment="Top"
-             Height="180" Margin="0,0,0,16"/>
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Text="이메일" Style="{StaticResource FieldLabel}"/>
+          <TextBlock Text="*" Foreground="{DynamicResource AccentButtonBrush}"
+                     FontSize="11" FontWeight="SemiBold" Margin="2,0,0,6"/>
+        </StackPanel>
+        <TextBox x:Name="EmailBox" Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}">
+          <TextBox.Style>
+            <Style TargetType="TextBox" BasedOn="{StaticResource AppTextBox}">
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding IsEmailInvalid}" Value="True">
+                  <Setter Property="BorderBrush" Value="{DynamicResource ErrorTextBrush}"/>
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </TextBox.Style>
+        </TextBox>
+        <TextBlock Text="{Binding EmailErrorText}" Foreground="{DynamicResource ErrorTextBrush}"
+                   FontSize="10" Margin="2,4,0,0"
+                   Visibility="{Binding IsEmailInvalid, Converter={StaticResource BoolToVis}}"/>
 
-    <Grid>
+        <TextBlock Text="제목" Style="{StaticResource FieldLabel}" Margin="2,14,0,6"/>
+        <TextBox x:Name="TitleBox" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"
+                 Style="{StaticResource AppTextBox}" Margin="0,0,0,14"/>
+
+        <TextBlock Text="내용" Style="{StaticResource FieldLabel}"/>
+        <TextBox x:Name="ContentBox" Text="{Binding Content, UpdateSourceTrigger=PropertyChanged}"
+                 Style="{StaticResource AppTextBox}"
+                 AcceptsReturn="True" TextWrapping="Wrap"
+                 VerticalScrollBarVisibility="Auto"
+                 VerticalContentAlignment="Top"
+                 Height="170" Margin="0,0,0,2"/>
+      </StackPanel>
+    </Border>
+
+    <Grid Margin="0,2,0,0">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="Auto"/>
         <ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
-      <Button Grid.Column="0" Content="전송" Command="{Binding SendCommand}"
+      <Button x:Name="SendButton" Grid.Column="0" Content="전송" Command="{Binding SendCommand}"
               Style="{StaticResource AccentButton}" MinWidth="88"/>
       <TextBlock Grid.Column="1" Text="{Binding StatusText}" Margin="12,0,0,0" FontSize="11"
-                 VerticalAlignment="Center" Foreground="#7BD88F" TextWrapping="Wrap"/>
+                 VerticalAlignment="Center" TextWrapping="Wrap">
+        <TextBlock.Style>
+          <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SuccessTextBrush}"/>
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding IsStatusError}" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource ErrorTextBrush}"/>
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </TextBlock.Style>
+      </TextBlock>
     </Grid>
+
+    <TextBlock Text="{Binding MetaText}" FontFamily="{StaticResource MonoFont}"
+               FontSize="10" Opacity="0.45" Margin="2,12,0,0"/>
   </StackPanel>
 </Window>

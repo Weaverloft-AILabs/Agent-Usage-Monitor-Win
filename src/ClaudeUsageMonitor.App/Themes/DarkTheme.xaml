@@ -24,4 +24,8 @@
   <SolidColorBrush x:Key="WidgetTextStrongBrush" Color="#EEFFFFFF"/>
   <SolidColorBrush x:Key="WidgetTextDimBrush" Color="#88FFFFFF"/>
   <SolidColorBrush x:Key="GaugeTrackBrush" Color="#2EFFFFFF"/>
+  <SolidColorBrush x:Key="ErrorTextBrush" Color="#E5584E"/>
+  <SolidColorBrush x:Key="SuccessTextBrush" Color="#7BD88F"/>
+  <SolidColorBrush x:Key="BugDotBrush" Color="#E5484D"/>
+  <SolidColorBrush x:Key="ImproveDotBrush" Color="#46A758"/>
 </ResourceDictionary>
