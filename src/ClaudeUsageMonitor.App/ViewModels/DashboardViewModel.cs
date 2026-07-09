@@ -86,6 +86,12 @@ public partial class DashboardViewModel : ObservableObject,
     [ObservableProperty]
     private SolidColorPaint _legendTextPaint = new(new SKColor(0xC8, 0xC8, 0xD8));
 
+    [ObservableProperty]
+    private SolidColorPaint _tooltipTextPaint = new(new SKColor(0xE8, 0xE8, 0xF0));
+
+    [ObservableProperty]
+    private SolidColorPaint _tooltipBackgroundPaint = new(new SKColor(0x2A, 0x2C, 0x3A));
+
     /// <summary>현재 속도 기준 5시간 한도 소진 예측 문구. 조건 미달이면 빈 문자열(숨김).</summary>
     [ObservableProperty]
     private string _exhaustionNote = "";
@@ -123,10 +129,24 @@ public partial class DashboardViewModel : ObservableObject,
         Theming.ThemeManager.EffectiveThemeChanged += () => OnUi(() =>
         {
             LegendTextPaint = ChartTextPaint();
+            TooltipTextPaint = TooltipText();
+            TooltipBackgroundPaint = TooltipBackground();
             RebuildChart();
         });
         _legendTextPaint = ChartTextPaint();
+        _tooltipTextPaint = TooltipText();
+        _tooltipBackgroundPaint = TooltipBackground();
     }
+
+    private static SolidColorPaint TooltipText() => new(
+        Theming.ThemeManager.IsDarkEffective
+            ? new SKColor(0xE8, 0xE8, 0xF0)
+            : new SKColor(0x23, 0x25, 0x2F));
+
+    private static SolidColorPaint TooltipBackground() => new(
+        Theming.ThemeManager.IsDarkEffective
+            ? new SKColor(0x2A, 0x2C, 0x3A)
+            : new SKColor(0xFF, 0xFF, 0xFF));
 
     private static SolidColorPaint ChartTextPaint() => new(
         Theming.ThemeManager.IsDarkEffective
@@ -256,6 +276,7 @@ public partial class DashboardViewModel : ObservableObject,
                     point.Coordinate.PrimaryValue >= 1_000_000
                         ? FormatTokens((long)point.Coordinate.PrimaryValue)
                         : "",
+                YToolTipLabelFormatter = point => FormatTokens((long)point.Coordinate.PrimaryValue),
             });
         }
 
@@ -314,6 +335,7 @@ public partial class DashboardViewModel : ObservableObject,
             point.Coordinate.PrimaryValue > 0
                 ? FormatTokens((long)point.Coordinate.PrimaryValue)
                 : "",
+        YToolTipLabelFormatter = point => FormatTokens((long)point.Coordinate.PrimaryValue),
     };
 
     private void ApplyChart(IReadOnlyList<ISeries> series, string[] labels, long totalTokens, double totalCost)
@@ -356,6 +378,8 @@ public partial class DashboardViewModel : ObservableObject,
             point.Coordinate.PrimaryValue >= 1
                 ? "$" + point.Coordinate.PrimaryValue.ToString("0", CultureInfo.InvariantCulture)
                 : "",
+        YToolTipLabelFormatter = point =>
+            "$" + point.Coordinate.PrimaryValue.ToString("0.00", CultureInfo.InvariantCulture),
     };
 
     private double DayCost(DailyRollup day)

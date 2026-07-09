@@ -5,6 +5,11 @@
     <OutputType>WinExe</OutputType>
     <UseWPF>true</UseWPF>
     <RootNamespace>ClaudeUsageMonitor.App</RootNamespace>
+    <!-- 프로세스명/프로그램명: Claude Monitor -->
+    <AssemblyName>Claude Monitor</AssemblyName>
+    <Product>Claude Monitor</Product>
+    <AssemblyTitle>Claude Monitor</AssemblyTitle>
+    <Version>1.0.0</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
     <!-- NU1701: SkiaSharp.Views.WPF(LiveCharts2 의존성)가 .NET Framework 대상 OpenTK를 참조 — 런타임 호환 확인됨 -->
@@ -19,6 +24,7 @@
     <PackageReference Include="Microsoft.Windows.CsWin32">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="Velopack" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,7 +1,7 @@
 <Window x:Class="ClaudeUsageMonitor.App.Settings.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="설정 — Claude Usage Monitor"
+        Title="설정 — Claude Monitor"
         Width="480" SizeToContent="Height"
         ResizeMode="NoResize"
         Background="{DynamicResource WindowBackgroundBrush}"
@@ -41,7 +41,7 @@
           </Grid.ColumnDefinitions>
           <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
             <TextBlock Text="새로고침 주기 (초)" Style="{StaticResource RowLabel}"/>
-            <TextBlock Text="usage API 보호를 위해 최소 180초" Style="{StaticResource RowHint}"/>
+            <TextBlock Text="최소 20초 — 60초 미만은 API 제한(429) 위험이 커집니다" Style="{StaticResource RowHint}"/>
           </StackPanel>
           <TextBox Grid.Column="1" Width="90"
                    Text="{Binding PollIntervalSeconds, UpdateSourceTrigger=PropertyChanged}"

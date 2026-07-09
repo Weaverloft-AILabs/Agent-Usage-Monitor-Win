@@ -27,5 +27,5 @@ if (-not $dotnet) {
     -o $Output
 
 Write-Host ""
-Write-Host "완료: $root\$Output\ClaudeUsageMonitor.App.exe"
-Get-Item "$Output\ClaudeUsageMonitor.App.exe" | Select-Object Name, @{N = "SizeMB"; E = { [Math]::Round($_.Length / 1MB, 1) } }
+Write-Host "완료: $root\$Output\Claude Monitor.exe"
+Get-Item "$Output\Claude Monitor.exe" | Select-Object Name, @{N = "SizeMB"; E = { [Math]::Round($_.Length / 1MB, 1) } }

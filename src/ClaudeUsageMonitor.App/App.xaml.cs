@@ -38,6 +38,10 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        // Velopack 설치/제거/업데이트 훅 — 설치 이벤트 처리 중에는 여기서 프로세스가 종료됨.
+        // 반드시 다른 초기화보다 먼저 실행해야 한다.
+        Velopack.VelopackApp.Build().Run();
+
         // LiveCharts 전역 초기화 — 차트 최초 생성 시점의 lazy auto-init 경합(간헐적 무렌더)을 피하기 위해
         // 시작 시 명시 구성한다. AddDarkTheme "단독" 호출은 렌더러/매퍼 기본 설정을 파괴하므로
         // 반드시 AddSkiaSharp + AddDefaultMappers와 함께 체인해야 한다.

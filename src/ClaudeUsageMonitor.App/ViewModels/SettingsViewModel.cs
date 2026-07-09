@@ -56,7 +56,7 @@ public partial class SettingsViewModel : ObservableObject
     {
         var previousMode = _settings.Mode;
 
-        _settings.PollIntervalSeconds = PollIntervalSeconds; // setter가 180 하한 강제
+        _settings.PollIntervalSeconds = PollIntervalSeconds; // setter가 하한(20초) 강제
         _settings.WarnThresholdPct = Math.Clamp(WarnThresholdPct, 1, 100);
         _settings.Mode = (WidgetMode)Math.Clamp(ModeIndex, 0, 2);
         _settings.Theme = (ThemePreference)Math.Clamp(ThemeIndex, 0, 2);

@@ -7,7 +7,7 @@ using Microsoft.Extensions.Hosting;
 namespace ClaudeUsageMonitor.App.Services;
 
 /// <summary>
-/// usage API를 설정 주기(하한 180초)로 폴링하고 결과를 메신저로 발행.
+/// usage API를 설정 주기(하한 20초, 기본 180초)로 폴링하고 결과를 메신저로 발행.
 /// 429 백오프 시 클라이언트가 알려준 NextPollAt까지 대기한다.
 /// </summary>
 public sealed class RateLimitPollingService : BackgroundService

@@ -9,6 +9,7 @@ public partial class DashboardWindow : Window
 {
     private readonly DashboardViewModel _viewModel;
     private readonly DispatcherTimer _liveTimer;
+    private DateTime _lastHoverKick;
 
     public event Action? SettingsRequested;
 
@@ -29,6 +30,17 @@ public partial class DashboardWindow : Window
             if (args.PropertyName == nameof(DashboardViewModel.Series) && IsVisible)
             {
                 NudgeChart();
+            }
+        };
+
+        // hover 툴팁도 같은 렌더 고착으로 그려지지 않음 — 차트 위 마우스 이동 시 스로틀 킥으로 페인트 강제
+        UsageChart.MouseMove += (_, _) =>
+        {
+            var now = DateTime.UtcNow;
+            if ((now - _lastHoverKick).TotalMilliseconds >= 250)
+            {
+                _lastHoverKick = now;
+                BounceChartMargin();
             }
         };
 

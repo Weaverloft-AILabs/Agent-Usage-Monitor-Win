@@ -17,11 +17,15 @@ public enum ThemePreference
 /// <summary>앱 설정. settings.json으로 영속.</summary>
 public sealed class MonitorSettings
 {
-    public const int MinPollIntervalSeconds = 180;
+    public const int MinPollIntervalSeconds = 20;
+    public const int DefaultPollIntervalSeconds = 180;
 
-    private int _pollIntervalSeconds = MinPollIntervalSeconds;
+    private int _pollIntervalSeconds = DefaultPollIntervalSeconds;
 
-    /// <summary>usage API 폴링 주기(초). 레이트리밋 보호를 위해 180초 미만은 강제 상향.</summary>
+    /// <summary>
+    /// usage API 폴링 주기(초). 20초 미만은 강제 상향.
+    /// 비공식 API라 짧은 주기는 sticky 429 위험이 커짐 — 기본값은 안전한 180초, 429 시 지수 백오프가 동작.
+    /// </summary>
     public int PollIntervalSeconds
     {
         get => _pollIntervalSeconds;
