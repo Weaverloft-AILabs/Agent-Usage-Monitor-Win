@@ -15,7 +15,7 @@ public partial class TrayViewModel : ObservableObject, IRecipient<RateLimitUpdat
     private readonly SettingsStore _settingsStore;
 
     [ObservableProperty]
-    private string _tooltipText = "Claude Monitor — 데이터 없음";
+    private string _tooltipText = "Agent Usage Monitor — 데이터 없음";
 
     [ObservableProperty]
     private double _fiveHourPct;
@@ -49,7 +49,7 @@ public partial class TrayViewModel : ObservableObject, IRecipient<RateLimitUpdat
             {
                 RateLimitStatus.NoCredentials => "Claude Code 로그인 정보를 찾을 수 없습니다",
                 RateLimitStatus.AuthRequired => "재로그인 필요 — claude 명령을 실행해 주세요",
-                _ => "Claude Monitor — 데이터 없음",
+                _ => "Agent Usage Monitor — 데이터 없음",
             };
             IsStale = true;
         }
