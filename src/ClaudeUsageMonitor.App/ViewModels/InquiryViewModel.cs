@@ -41,6 +41,12 @@ public partial class InquiryViewModel : ObservableObject
     [ObservableProperty]
     private string _emailErrorText = "";
 
+    [ObservableProperty]
+    private bool _isTitleInvalid;
+
+    [ObservableProperty]
+    private bool _isContentInvalid;
+
     /// <summary>전송 시 자동 첨부되는 정보 안내 (창 하단 각주).</summary>
     public string MetaText { get; } = $"v{AppVersion()} 및 OS 정보가 함께 전송됩니다";
 
@@ -84,27 +90,40 @@ public partial class InquiryViewModel : ObservableObject
         }
     }
 
+    partial void OnTitleChanged(string value)
+    {
+        if (IsTitleInvalid && !string.IsNullOrWhiteSpace(value))
+        {
+            IsTitleInvalid = false;
+        }
+    }
+
+    partial void OnContentChanged(string value)
+    {
+        if (IsContentInvalid && !string.IsNullOrWhiteSpace(value))
+        {
+            IsContentInvalid = false;
+        }
+    }
+
     [RelayCommand]
     private async Task SendAsync()
     {
+        // 세 필드 모두 필수 — 누락된 필드를 한 번에 전부 표시
         var email = Email.Trim();
-        if (!EmailValidator.IsValid(email))
-        {
-            EmailErrorText = string.IsNullOrWhiteSpace(email)
+        var emailOk = EmailValidator.IsValid(email);
+        EmailErrorText = emailOk
+            ? ""
+            : string.IsNullOrWhiteSpace(email)
                 ? "답변을 받을 이메일 주소를 입력해 주세요"
                 : "이메일 주소 형식이 올바르지 않습니다";
-            IsEmailInvalid = true;
-            StatusText = "";
-            return;
-        }
+        IsEmailInvalid = !emailOk;
+        IsTitleInvalid = string.IsNullOrWhiteSpace(Title);
+        IsContentInvalid = string.IsNullOrWhiteSpace(Content);
 
-        IsEmailInvalid = false;
-        EmailErrorText = "";
-
-        if (string.IsNullOrWhiteSpace(Title) && string.IsNullOrWhiteSpace(Content))
+        if (IsEmailInvalid || IsTitleInvalid || IsContentInvalid)
         {
-            IsStatusError = true;
-            StatusText = "제목이나 내용을 입력해 주세요";
+            StatusText = "";
             return;
         }
 

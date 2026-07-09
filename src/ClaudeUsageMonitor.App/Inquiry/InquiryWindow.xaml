@@ -75,17 +75,49 @@
                    FontSize="10" Margin="2,4,0,0"
                    Visibility="{Binding IsEmailInvalid, Converter={StaticResource BoolToVis}}"/>
 
-        <TextBlock Text="제목" Style="{StaticResource FieldLabel}" Margin="2,14,0,6"/>
-        <TextBox x:Name="TitleBox" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"
-                 Style="{StaticResource AppTextBox}" Margin="0,0,0,14"/>
+        <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+          <TextBlock Text="제목" Style="{StaticResource FieldLabel}"/>
+          <TextBlock Text="*" Foreground="{DynamicResource AccentButtonBrush}"
+                     FontSize="11" FontWeight="SemiBold" Margin="2,0,0,6"/>
+        </StackPanel>
+        <TextBox x:Name="TitleBox" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}">
+          <TextBox.Style>
+            <Style TargetType="TextBox" BasedOn="{StaticResource AppTextBox}">
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding IsTitleInvalid}" Value="True">
+                  <Setter Property="BorderBrush" Value="{DynamicResource ErrorTextBrush}"/>
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </TextBox.Style>
+        </TextBox>
+        <TextBlock Text="제목을 입력해 주세요" Foreground="{DynamicResource ErrorTextBrush}"
+                   FontSize="10" Margin="2,4,0,0"
+                   Visibility="{Binding IsTitleInvalid, Converter={StaticResource BoolToVis}}"/>
 
-        <TextBlock Text="내용" Style="{StaticResource FieldLabel}"/>
+        <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+          <TextBlock Text="내용" Style="{StaticResource FieldLabel}"/>
+          <TextBlock Text="*" Foreground="{DynamicResource AccentButtonBrush}"
+                     FontSize="11" FontWeight="SemiBold" Margin="2,0,0,6"/>
+        </StackPanel>
         <TextBox x:Name="ContentBox" Text="{Binding Content, UpdateSourceTrigger=PropertyChanged}"
-                 Style="{StaticResource AppTextBox}"
                  AcceptsReturn="True" TextWrapping="Wrap"
                  VerticalScrollBarVisibility="Auto"
                  VerticalContentAlignment="Top"
-                 Height="170" Margin="0,0,0,2"/>
+                 Height="170">
+          <TextBox.Style>
+            <Style TargetType="TextBox" BasedOn="{StaticResource AppTextBox}">
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding IsContentInvalid}" Value="True">
+                  <Setter Property="BorderBrush" Value="{DynamicResource ErrorTextBrush}"/>
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </TextBox.Style>
+        </TextBox>
+        <TextBlock Text="내용을 입력해 주세요" Foreground="{DynamicResource ErrorTextBrush}"
+                   FontSize="10" Margin="2,4,0,2"
+                   Visibility="{Binding IsContentInvalid, Converter={StaticResource BoolToVis}}"/>
       </StackPanel>
     </Border>
 
