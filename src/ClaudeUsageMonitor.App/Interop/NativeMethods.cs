@@ -135,6 +135,10 @@ internal static class NativeMethods
     public static extern bool UnhookWinEvent(IntPtr hWinEventHook);
 
     public const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
+    /// <summary>창 표시 — 플라이아웃/시작 메뉴 등장 포착용 (SHOW..REORDER 범위 훅의 시작).</summary>
+    public const uint EVENT_OBJECT_SHOW = 0x8002;
+    /// <summary>창 숨김 — 플라이아웃/시작 메뉴 닫힘 포착용.</summary>
+    public const uint EVENT_OBJECT_HIDE = 0x8003;
     /// <summary>최상위 창 z-순서 변경 — 작업표시줄이 위젯 위로 올라오는 순간 포착용.</summary>
     public const uint EVENT_OBJECT_REORDER = 0x8004;
     public const uint WINEVENT_OUTOFCONTEXT = 0x0000;

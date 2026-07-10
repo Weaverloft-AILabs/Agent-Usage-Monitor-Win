@@ -14,7 +14,9 @@ namespace ClaudeUsageMonitor.App.Widget;
 /// 위젯 창의 표시 모드(taskbar 도킹 / floating / 숨김)를 관리.
 /// - 도킹: 작업표시줄(주/보조) 내부 오버레이. 드래그로 자유 이동 가능하며 드롭 시 가장 가까운
 ///   작업표시줄에 스냅하고 위치를 (모니터 장치명, 비율)로 저장 — 해상도/DPI 변화에 자동 적응.
-/// - WM_SETTINGCHANGE/WM_DISPLAYCHANGE/WM_DPICHANGED에서 재도킹, 2초 주기 + 포그라운드 변경 시 topmost 재주장.
+/// - WM_SETTINGCHANGE/WM_DISPLAYCHANGE/WM_DPICHANGED에서 재도킹.
+/// - topmost 재주장 4경로: 포그라운드 변경 훅 / SHOW·HIDE·REORDER 훅(100ms 스로틀) /
+///   셸 이벤트 후 트레일링 버스트(150ms×8) / 1초 폴백 타이머 — 어느 것도 제거 금지.
 /// </summary>
 public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChangedMessage>
 {
@@ -25,8 +27,10 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
     private readonly MonitorSettings _settings;
     private readonly SettingsStore _settingsStore;
     private readonly DispatcherTimer _topmostTimer;
+    private readonly DispatcherTimer _burstTimer;
     private bool _hiddenByFullscreen;
     private int _lastReassertTick;
+    private int _burstTicksLeft;
 
     // GC로 콜백이 수집되지 않도록 delegate를 필드로 유지 (필수)
     private readonly NativeMethods.WinEventDelegate _foregroundChanged;
@@ -86,17 +90,39 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
             NativeMethods.EVENT_SYSTEM_FOREGROUND, NativeMethods.EVENT_SYSTEM_FOREGROUND,
             IntPtr.Zero, _foregroundChanged, 0, 0, NativeMethods.WINEVENT_OUTOFCONTEXT);
 
+        // 셸 이벤트 버스트(플라이아웃/시작 메뉴 닫힘 등)의 마지막 이벤트가 스로틀에 버려지면
+        // 폴백 타이머(1초)까지 가려짐 — 트레일링 버스트로 마지막 이벤트 후 ~1.2초간 150ms 간격 재주장.
+        // (시작 메뉴 닫힘처럼 셸이 작업표시줄 밴드를 늦게 되돌리는 경우까지 커버)
+        _burstTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(150),
+        };
+        _burstTimer.Tick += (_, _) =>
+        {
+            ReassertIfVisible();
+            if (--_burstTicksLeft <= 0)
+            {
+                _burstTimer.Stop();
+            }
+        };
+
         _zOrderChanged = (_, _, _, _, _, _, _) =>
         {
-            // z-순서 변경은 폭주할 수 있음(창 드래그 등) — 스로틀로 보호. 재주장 자체는 noop 수준으로 저렴
+            // SHOW/HIDE/REORDER는 폭주할 수 있음(창 드래그 등) — 즉시 재주장은 100ms 스로틀,
+            // 트레일링 버스트는 항상 재장전 (재주장 자체는 noop 수준으로 저렴)
             var now = Environment.TickCount;
             if (now - _lastReassertTick >= 100)
             {
                 ReassertIfVisible();
             }
+            _burstTicksLeft = 8;
+            if (!_burstTimer.IsEnabled)
+            {
+                _burstTimer.Start();
+            }
         };
         _reorderEventHook = NativeMethods.SetWinEventHook(
-            NativeMethods.EVENT_OBJECT_REORDER, NativeMethods.EVENT_OBJECT_REORDER,
+            NativeMethods.EVENT_OBJECT_SHOW, NativeMethods.EVENT_OBJECT_REORDER,
             IntPtr.Zero, _zOrderChanged, 0, 0, NativeMethods.WINEVENT_OUTOFCONTEXT);
 
         WeakReferenceMessenger.Default.Register(this);
@@ -362,6 +388,7 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
     public void Dispose()
     {
         _topmostTimer.Stop();
+        _burstTimer.Stop();
         if (_winEventHook != IntPtr.Zero)
         {
             NativeMethods.UnhookWinEvent(_winEventHook);
