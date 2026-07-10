@@ -39,22 +39,8 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
-        // Velopack 설치/제거/업데이트 훅 — 설치 이벤트 처리 중에는 여기서 프로세스가 종료됨.
-        // 반드시 다른 초기화보다 먼저 실행해야 한다.
-        Velopack.VelopackApp.Build()
-            .OnBeforeUninstallFastCallback(_ =>
-            {
-                // Windows 앱에서 제거 시 로컬 데이터(설정/롤업/캐시)도 함께 삭제
-                try
-                {
-                    Directory.Delete(MonitorPaths.Default().DataDirectory, recursive: true);
-                }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-                {
-                    // 삭제 실패해도 제거 자체는 계속
-                }
-            })
-            .Run();
+        // Velopack 훅(설치/제거/업데이트)은 Program.Main에서 WPF 초기화 전에 이미 실행됨 —
+        // install/update 훅이면 그 시점에 프로세스가 종료되어 여기에 도달하지 않는다.
 
         // LiveCharts 전역 초기화 — 차트 최초 생성 시점의 lazy auto-init 경합(간헐적 무렌더)을 피하기 위해
         // 시작 시 명시 구성한다. AddDarkTheme "단독" 호출은 렌더러/매퍼 기본 설정을 파괴하므로

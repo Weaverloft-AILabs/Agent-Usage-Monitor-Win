@@ -76,6 +76,7 @@ jobs:
             '--packTitle', 'Agent Usage Monitor',
             '--packAuthors', 'WeaverLoft inc. AILabs',
             '--icon', 'src/ClaudeUsageMonitor.App/Assets/icon.ico',
+            '--splashImage', 'src/ClaudeUsageMonitor.App/Assets/splash.png',
             '-o', 'artifacts/installer'
           )
           if ($env:VPK_SIGN_PARAMS) {

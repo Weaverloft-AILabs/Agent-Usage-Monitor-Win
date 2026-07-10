@@ -5,6 +5,8 @@
     <OutputType>WinExe</OutputType>
     <UseWPF>true</UseWPF>
     <RootNamespace>ClaudeUsageMonitor.App</RootNamespace>
+    <!-- 명시적 진입점(Program.Main) — Velopack 훅을 WPF 초기화 전에 실행 (Program.cs 참고) -->
+    <StartupObject>ClaudeUsageMonitor.App.Program</StartupObject>
     <!-- 프로세스명/프로그램명: Agent Usage Monitor -->
     <AssemblyName>Agent Usage Monitor</AssemblyName>
     <Product>Agent Usage Monitor</Product>
@@ -36,6 +38,12 @@
 
   <ItemGroup>
     <Resource Include="Assets\icon.ico" />
+  </ItemGroup>
+
+  <!-- 커스텀 진입점 사용: App.xaml을 ApplicationDefinition(자동 Main 생성) 대신 Page로 컴파일 -->
+  <ItemGroup>
+    <ApplicationDefinition Remove="App.xaml" />
+    <Page Include="App.xaml" />
   </ItemGroup>
 
 </Project>
