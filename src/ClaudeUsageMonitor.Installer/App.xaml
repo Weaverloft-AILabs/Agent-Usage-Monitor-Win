@@ -1,0 +1,5 @@
+<Application x:Class="ClaudeUsageMonitor.Installer.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- StartupUri 없음: OnStartup에서 인자(setup 경로)를 파싱해 창을 생성 -->
+</Application>

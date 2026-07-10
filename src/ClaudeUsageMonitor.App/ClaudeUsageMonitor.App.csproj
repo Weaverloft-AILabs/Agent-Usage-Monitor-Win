@@ -15,7 +15,8 @@
     <Authors>WeaverLoft inc. AILabs</Authors>
     <Copyright>© WeaverLoft inc. AILabs</Copyright>
     <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
-    <Version>1.2.0</Version>
+    <!-- custom-installer 브랜치: master 병합 시 2.0.0 확정, 그 전까지 beta (태그/릴리스 없음) -->
+    <Version>2.0.0-beta.1</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
     <!-- NU1701: SkiaSharp.Views.WPF(LiveCharts2 의존성)가 .NET Framework 대상 OpenTK를 참조 — 런타임 호환 확인됨 -->
