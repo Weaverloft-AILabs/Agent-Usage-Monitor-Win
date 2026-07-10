@@ -110,4 +110,6 @@ dotnet test tests/ClaudeUsageMonitor.Core.Tests
 전체 소스를 동일한 AGPL-3.0 으로 공개**해야 합니다. 상업적·독점적(소스 비공개) 재사용은 허용되지 않습니다.
 저작권자(WeaverLoft inc. AILabs)에게는 이 제한이 적용되지 않습니다.
 
+코드 서명 정책은 [SIGNING-POLICY.md](SIGNING-POLICY.md) 참조.
+
 © 2026 WeaverLoft inc. AILabs. Licensed under AGPL-3.0-only.

@@ -238,5 +238,13 @@
       <TextBlock Grid.Column="2" Text="{Binding StatusText}" Margin="12,0,0,0" FontSize="11"
                  Foreground="#7BD88F" HorizontalAlignment="Right"/>
     </Grid>
+
+    <!-- 법적 고지 (AGPL-3.0 §5(d): 대화형 UI는 저작권·라이선스·소스 위치를 표시) -->
+    <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,16,0,10"/>
+    <TextBlock FontSize="10" Foreground="{DynamicResource TextPrimaryBrush}"
+               TextWrapping="Wrap" Opacity="0.65">
+      <Run Text="© 2026 WeaverLoft inc. AILabs · GNU AGPL-3.0 · 소스: "/><Hyperlink NavigateUri="https://github.com/Weaverloft-AILabs/Agent-Usage-Monitor-Win"
+                 RequestNavigate="OnSourceLinkNavigate">github.com/Weaverloft-AILabs/Agent-Usage-Monitor-Win</Hyperlink>
+    </TextBlock>
   </StackPanel>
 </Window>
