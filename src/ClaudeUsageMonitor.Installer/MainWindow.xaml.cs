@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Input;
 
@@ -13,6 +14,18 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = viewModel;
         viewModel.CloseRequested += Close;
+    }
+
+    /// <summary>모든 닫기 경로(✕/Esc뿐 아니라 Alt+F4·작업표시줄 닫기 포함)의 단일 관문 —
+    /// 진행 중 창이 닫히면 Setup 프로세스만 남는 유령 설치가 된다.</summary>
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        if (_viewModel.State == InstallerState.Progress)
+        {
+            e.Cancel = true;
+        }
+
+        base.OnClosing(e);
     }
 
     private void OnDragStrip(object sender, MouseButtonEventArgs e)

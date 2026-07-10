@@ -8,17 +8,26 @@ namespace ClaudeUsageMonitor.Installer.Tests;
 public class InstallDiagnosticsTests
 {
     [Fact]
-    public void Setup_Exit_Without_Log_Update_Is_Antivirus_Hold()
+    public void Setup_Exit_Without_Install_Activity_Is_Antivirus_Hold()
     {
-        var failure = InstallDiagnostics.FromSetupExit(1, logWrittenAfterStart: false, logTail: null);
+        var failure = InstallDiagnostics.FromSetupExit(1, installActivitySeen: false, logTail: null);
         Assert.Equal(InstallFailureClass.AntivirusHold, failure.Class);
         Assert.Equal(InstallDiagnostics.AntivirusAdvice, failure.Advice);
     }
 
     [Fact]
-    public void Setup_Exit_With_Log_Is_Setup_Error_With_Tail()
+    public void Unrelated_Machine_Log_Does_Not_Flip_Classification()
     {
-        var failure = InstallDiagnostics.FromSetupExit(1, logWrittenAfterStart: true, logTail: "fatal: disk full");
+        // 다른 Velopack 프로세스가 전역 로그를 썼어도 우리 설치 루트가 안 건드려졌으면 AV 홀드 유지
+        var failure = InstallDiagnostics.FromSetupExit(1, installActivitySeen: false, logTail: "someone else's line");
+        Assert.Equal(InstallFailureClass.AntivirusHold, failure.Class);
+        Assert.Contains("may be unrelated", failure.Detail);
+    }
+
+    [Fact]
+    public void Setup_Exit_With_Install_Activity_Is_Setup_Error_With_Tail()
+    {
+        var failure = InstallDiagnostics.FromSetupExit(1, installActivitySeen: true, logTail: "fatal: disk full");
         Assert.Equal(InstallFailureClass.SetupError, failure.Class);
         Assert.Contains("disk full", failure.Detail);
         Assert.Equal(InstallDiagnostics.LogAdvice, failure.Advice);

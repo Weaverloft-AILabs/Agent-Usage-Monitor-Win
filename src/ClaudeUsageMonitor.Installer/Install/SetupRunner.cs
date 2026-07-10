@@ -17,15 +17,22 @@ public sealed record StageProgress(InstallStage Stage);
 public sealed record InstallResult(bool Success, InstallFailure? Failure);
 
 /// <summary>
-/// Velopack Setup을 --silent로 실행하고 관찰 가능한 신호로 단계를 전환한다:
-/// 보안 검사(프로세스 시작 ~ velopack.log 첫 갱신 — 무서명 exe의 AV 홀드가 이 구간에 보임)
-/// → 설치(velopack.log 갱신 감지) → 완료(exit 0 + 설치 산출물 존재).
-/// 취소는 설치 단계 진입 전(디스크 쓰기 전)에만 허용 — 반쯤 설치 방지.
+/// Velopack Setup을 --silent로 실행하고 관찰 가능한 디스크 신호로 단계를 전환한다.
+///
+/// 신호 설계 (2026-07-10 적대적 리뷰 반영):
+/// · velopack.log는 머신 전역 파일(다른 Velopack 앱/실행 중인 본 앱의 UpdateService도 씀) —
+///   "길이 증가"를 핸들 열람으로 읽어(속성 캐시 지연 회피) 보조 신호로만 쓴다.
+/// · 주 신호 = 설치 루트(%LOCALAPPDATA%\AgentUsageMonitor)의 생성/수정 — 우리 설치의 디스크 쓰기.
+/// · 두 신호 중 하나라도 관측되면 "설치" 단계로 판정하고 취소를 회수한다(오탐 방향 = 취소가 일찍
+///   막힐 뿐 안전; 미탐 방향이 반쯤 설치를 만든다). 신호 평가가 취소 처리보다 항상 먼저다.
+/// · 워치독: 설치 신호 전 15분 → kill 후 실패 보고(디스크 쓰기 전이라 안전).
+///   설치 신호 후 60분 → kill 없이 보고만(절전 복귀/야간 설치에서 쓰기 중 kill 금지).
 /// </summary>
 public sealed class SetupRunner
 {
-    private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(250);
-    private static readonly TimeSpan Watchdog = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(150);
+    private static readonly TimeSpan PreInstallWatchdog = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan PostInstallWatchdog = TimeSpan.FromMinutes(60);
 
     public static string DefaultVelopackLogPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -37,18 +44,23 @@ public sealed class SetupRunner
 
     private readonly string _velopackLogPath;
     private readonly string _installedExePath;
+    private readonly string _installRootPath;
 
     public SetupRunner(string? velopackLogPath = null, string? installedExePath = null)
     {
         _velopackLogPath = velopackLogPath ?? DefaultVelopackLogPath;
         _installedExePath = installedExePath ?? DefaultInstalledExePath;
+        _installRootPath = Path.GetDirectoryName(Path.GetDirectoryName(_installedExePath)!)
+            ?? _installedExePath;
     }
 
     public async Task<InstallResult> RunAsync(
         string setupPath, IProgress<StageProgress> progress, CancellationToken cancellationToken)
     {
         progress.Report(new StageProgress(InstallStage.SecurityScan));
-        var startedAtUtc = DateTime.UtcNow;
+        var startLogLength = ReadLogLength();
+        var rootBaseline = GetInstallRootWriteTimeUtc();
+        var clock = Stopwatch.StartNew();
 
         using var process = new Process
         {
@@ -65,23 +77,34 @@ public sealed class SetupRunner
         var installStageSeen = false;
         while (!process.HasExited)
         {
-            // 설치(디스크 쓰기) 진입 전까지만 취소 허용
-            if (!installStageSeen && cancellationToken.IsCancellationRequested)
-            {
-                TryKill(process);
-                cancellationToken.ThrowIfCancellationRequested();
-            }
-
-            if (!installStageSeen && LogWrittenAfter(startedAtUtc))
+            // 1) 디스크 활동 신호를 취소 처리보다 먼저 평가 — 신호 이후 도착한 취소를 실행하지 않기 위한 순서
+            if (!installStageSeen && DiskActivityObserved(startLogLength, rootBaseline))
             {
                 installStageSeen = true;
                 progress.Report(new StageProgress(InstallStage.Install));
             }
 
-            if (DateTime.UtcNow - startedAtUtc > Watchdog)
+            if (!installStageSeen)
             {
-                TryKill(process);
-                return new InstallResult(false, InstallDiagnostics.FromTimeout(installStageSeen));
+                // 2) 취소·워치독은 디스크 쓰기 전에만 kill 허용
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    TryKill(process);
+                    process.WaitForExit(5000); // 죽는 프로세스와 재시도 충돌 방지
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+
+                if (clock.Elapsed > PreInstallWatchdog)
+                {
+                    TryKill(process);
+                    process.WaitForExit(5000);
+                    return new InstallResult(false, InstallDiagnostics.FromTimeout(installStageSeen: false));
+                }
+            }
+            else if (clock.Elapsed > PostInstallWatchdog)
+            {
+                // 설치 신호 후에는 절대 kill하지 않는다 — 보고만 하고 Setup은 끝까지 진행하게 둔다
+                return new InstallResult(false, InstallDiagnostics.FromTimeout(installStageSeen: true));
             }
 
             await Task.Delay(PollInterval, CancellationToken.None).ConfigureAwait(false);
@@ -98,21 +121,71 @@ public sealed class SetupRunner
             return new InstallResult(false, InstallDiagnostics.FromMissingArtifact(_installedExePath));
         }
 
-        var logWritten = LogWrittenAfter(startedAtUtc);
+        // 분류는 "우리 설치 루트가 실제로 건드려졌는가" 기준 — 전역 velopack.log 성장만으로는
+        // 다른 Velopack 프로세스의 로그 꼬리를 우리 실패 원인으로 오표기할 수 있다
+        var rootTouched = InstallRootTouched(rootBaseline);
+        var logGrew = ReadLogLength() > startLogLength;
         return new InstallResult(false, InstallDiagnostics.FromSetupExit(
-            process.ExitCode, logWritten,
-            logWritten ? InstallDiagnostics.ReadLogTail(_velopackLogPath) : null));
+            process.ExitCode,
+            installActivitySeen: rootTouched,
+            logTail: logGrew ? InstallDiagnostics.ReadLogTail(_velopackLogPath) : null));
     }
 
-    private bool LogWrittenAfter(DateTime utc)
+    /// <summary>설치 루트 수정(주 신호) 또는 velopack.log 길이 증가(보조 신호).</summary>
+    private bool DiskActivityObserved(long startLogLength, DateTime? rootBaseline) =>
+        InstallRootTouched(rootBaseline) || ReadLogLength() > startLogLength;
+
+    private bool InstallRootTouched(DateTime? baseline)
+    {
+        var current = GetInstallRootWriteTimeUtc();
+        if (current is null)
+        {
+            return false;
+        }
+
+        return baseline is null || current > baseline;
+    }
+
+    private DateTime? GetInstallRootWriteTimeUtc()
     {
         try
         {
-            return File.Exists(_velopackLogPath) && File.GetLastWriteTimeUtc(_velopackLogPath) > utc;
+            return Directory.Exists(_installRootPath)
+                ? Directory.GetLastWriteTimeUtc(_installRootPath)
+                : null;
         }
         catch (IOException)
         {
-            return false;
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>핸들을 직접 열어 길이를 읽는다 — 속성 캐시(LastWriteTime 지연 갱신)를 우회.
+    /// 읽기 실패는 0 (성장 판정이 보수적으로 기울음 = 취소가 일찍 회수되는 안전한 방향).</summary>
+    private long ReadLogLength()
+    {
+        try
+        {
+            if (!File.Exists(_velopackLogPath))
+            {
+                return 0;
+            }
+
+            using var stream = new FileStream(
+                _velopackLogPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            return stream.Length;
+        }
+        catch (IOException)
+        {
+            return 0;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return 0;
         }
     }
 
@@ -128,7 +201,7 @@ public sealed class SetupRunner
         }
         catch (System.ComponentModel.Win32Exception)
         {
-            // 권한/상태 문제 — 종료 대기 루프가 알아서 빠져나감
+            // 권한/상태 문제 — WaitForExit가 처리
         }
     }
 }

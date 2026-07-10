@@ -94,12 +94,14 @@ public partial class InstallerViewModel : ObservableObject
         State = InstallerState.Progress;
         _cancelSource = new CancellationTokenSource();
         var cancellationToken = _cancelSource.Token;
+        string? downloadedSetup = null;
         try
         {
             var setupPath = SetupLocator.Locate(_setupArgPath, AppContext.BaseDirectory, File.Exists);
             if (setupPath is null)
             {
                 setupPath = await DownloadSetupAsync(cancellationToken);
+                downloadedSetup = setupPath;
             }
             else
             {
@@ -136,11 +138,33 @@ public partial class InstallerViewModel : ObservableObject
         }
         catch (Exception ex) when (ex is HttpRequestException or IOException or OperationCanceledException)
         {
-            // OperationCanceledException 여기 도달 = 사용자 취소가 아닌 HTTP 타임아웃
+            // OperationCanceledException 여기 도달 = 사용자 취소가 아닌 HTTP 스톨/타임아웃
             ShowFailure(InstallDiagnostics.FromDownloadError(ex));
+        }
+        catch (Exception ex)
+        {
+            // 마지막 방어선 — 어떤 예외도 크래시 대신 오류 상태로 (예: 프록시 간섭의 JsonException 등)
+            ShowFailure(new InstallFailure(
+                InstallFailureClass.Unknown,
+                ex.GetType().Name + ": " + ex.Message,
+                InstallDiagnostics.LogAdvice));
         }
         finally
         {
+            if (downloadedSetup is not null)
+            {
+                try
+                {
+                    File.Delete(downloadedSetup); // 실행 중이면 잠겨서 실패 — 무시 (임시 폴더 잔존만)
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+            }
+
             _cancelSource?.Dispose();
             _cancelSource = null;
             CanCancel = false;
@@ -153,11 +177,22 @@ public partial class InstallerViewModel : ObservableObject
         using var client = new GitHubReleaseClient();
         var url = await client.FindLatestSetupUrlAsync(cancellationToken)
             ?? throw new HttpRequestException("최신 릴리스에서 Setup 자산을 찾지 못했습니다");
-        var destination = Path.Combine(Path.GetTempPath(), SetupLocator.SetupFileName);
-        await client.DownloadAsync(url, destination, pct =>
+        // 고유 임시 이름 — 동시 실행/이전 잔존 파일과의 충돌 방지 (사용 후 finally에서 삭제)
+        var destination = Path.Combine(
+            Path.GetTempPath(), $"AgentUsageMonitor-Setup-{Guid.NewGuid():N}.exe");
+        await client.DownloadAsync(url, destination, (pct, bytes) =>
         {
-            GaugePct = pct * 0.55; // 다운로드 = 전체 게이지의 0~55% 구간
-            ProgressValueText = $"{pct:0}%";
+            if (pct is { } value)
+            {
+                GaugePct = value * 0.55; // 게이지 = 전 흐름 단일 밴드 (다운로드 0~55 구간)
+                ProgressValueText = $"{value:0}%";
+            }
+            else
+            {
+                // Content-Length 없음 — 멎은 "0%" 대신 수신량 표기, 게이지는 자산 크기(~70MB) 근사
+                GaugePct = Math.Min(50, bytes / (70.0 * 1024 * 1024) * 55);
+                ProgressValueText = $"{bytes / 1048576.0:0.0} MB";
+            }
         }, cancellationToken);
         return destination;
     }

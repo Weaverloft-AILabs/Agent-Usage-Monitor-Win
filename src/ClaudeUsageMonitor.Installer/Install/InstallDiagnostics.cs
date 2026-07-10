@@ -30,15 +30,17 @@ public static class InstallDiagnostics
     public static InstallFailure FromDownloadError(Exception exception) =>
         new(InstallFailureClass.Network, "download failed: " + exception.Message, NetworkAdvice);
 
-    /// <summary>Setup 종료 후 판정. logWrittenAfterStart = 프로세스 시작 이후 velopack.log 갱신 여부
-    /// (파일 존재만으로는 판정 불가 — 이전 설치의 잔존 로그가 있을 수 있음).</summary>
-    public static InstallFailure FromSetupExit(int exitCode, bool logWrittenAfterStart, string? logTail)
+    /// <summary>Setup 종료 후 판정. installActivitySeen = "우리 설치 루트"가 실제로 건드려졌는가
+    /// (velopack.log는 머신 전역이라 다른 Velopack 프로세스의 기록일 수 있음 — 분류 기준으로 쓰지 않는다).</summary>
+    public static InstallFailure FromSetupExit(int exitCode, bool installActivitySeen, string? logTail)
     {
-        if (!logWrittenAfterStart)
+        if (!installActivitySeen)
         {
             return new(
                 InstallFailureClass.AntivirusHold,
-                $"Setup exited with code {exitCode} — velopack.log not updated",
+                logTail is null
+                    ? $"Setup exited with code {exitCode} — no install activity observed"
+                    : $"Setup exited with code {exitCode} — no install activity; machine log tail (may be unrelated): \"{logTail}\"",
                 AntivirusAdvice);
         }
 

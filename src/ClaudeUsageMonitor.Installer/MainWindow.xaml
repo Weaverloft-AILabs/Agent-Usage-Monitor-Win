@@ -89,10 +89,11 @@
       </Setter>
     </Style>
 
-    <!-- 커스텀 크롬 ✕ (46×32 히트 · hover #2A2C3A · 진행 중 비활성) -->
+    <!-- 커스텀 크롬 ✕ (46×32 히트 · hover #2A2C3A · 진행 중 비활성 · 탭 순회 제외 — Esc/마우스로 충분) -->
     <Style x:Key="CloseButton" TargetType="Button">
       <Setter Property="Foreground" Value="{StaticResource TextDimBrush}"/>
       <Setter Property="FontSize" Value="14"/>
+      <Setter Property="IsTabStop" Value="False"/>
       <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
       <Setter Property="Template">
         <Setter.Value>
@@ -133,6 +134,18 @@
               <DropShadowEffect Color="#D97757" BlurRadius="8" ShadowDepth="0" Opacity="0.6"/>
             </Setter.Value>
           </Setter>
+          <!-- 1.6s 펄스 — AV 홀드 대기 중 "살아있음" 신호 (카드 모션 스펙) -->
+          <DataTrigger.EnterActions>
+            <BeginStoryboard x:Name="ActiveDotPulse">
+              <Storyboard>
+                <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1" To="0.55"
+                                 Duration="0:0:0.8" AutoReverse="True" RepeatBehavior="Forever"/>
+              </Storyboard>
+            </BeginStoryboard>
+          </DataTrigger.EnterActions>
+          <DataTrigger.ExitActions>
+            <StopStoryboard BeginStoryboardName="ActiveDotPulse"/>
+          </DataTrigger.ExitActions>
         </DataTrigger>
         <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=StackPanel}}" Value="Done">
           <Setter Property="Visibility" Value="Collapsed"/>
@@ -296,12 +309,19 @@
               <TextBlock Text="완료" Style="{StaticResource StepLabel}"/>
             </StackPanel>
           </StackPanel>
-          <StackPanel Orientation="Horizontal" Margin="0,18,0,0"
-                      Visibility="{Binding ShowSlowHint, Converter={StaticResource BoolToVis}}">
-            <TextBlock Text="⚠" FontSize="11.5" Foreground="{StaticResource WarnBrush}" Margin="0,0,7,0"/>
-            <TextBlock Text="보안 소프트웨어 검사로 1분 이상 걸릴 수 있습니다 — 창을 닫지 말고 기다려 주세요."
+          <!-- Grid(Auto,*) — 가로 StackPanel에서는 TextWrapping이 동작하지 않음 (무한 폭 측정) -->
+          <Grid Margin="0,18,0,0"
+                Visibility="{Binding ShowSlowHint, Converter={StaticResource BoolToVis}}">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="⚠" FontSize="11.5" Foreground="{StaticResource WarnBrush}"
+                       Margin="0,0,7,0" VerticalAlignment="Top"/>
+            <TextBlock Grid.Column="1"
+                       Text="보안 소프트웨어 검사로 1분 이상 걸릴 수 있습니다 — 창을 닫지 말고 기다려 주세요."
                        FontSize="11.5" Foreground="{StaticResource TextDimBrush}" TextWrapping="Wrap"/>
-          </StackPanel>
+          </Grid>
         </StackPanel>
 
         <!-- STATE: 완료 -->
@@ -351,7 +371,7 @@
           <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
             <Grid Width="34" Height="34" VerticalAlignment="Top">
               <Ellipse Fill="#24E0503C"/>
-              <TextBlock Text="✕" FontSize="15" FontWeight="Bold" Foreground="{StaticResource ErrBrush}"
+              <TextBlock Text="✕" FontSize="17" FontWeight="Bold" Foreground="{StaticResource ErrBrush}"
                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Grid>
             <StackPanel Margin="12,0,0,0">
