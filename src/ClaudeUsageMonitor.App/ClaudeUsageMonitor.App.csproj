@@ -14,6 +14,7 @@
     <Company>WeaverLoft inc. AILabs</Company>
     <Authors>WeaverLoft inc. AILabs</Authors>
     <Copyright>© WeaverLoft inc. AILabs</Copyright>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
     <Version>1.1.1</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
