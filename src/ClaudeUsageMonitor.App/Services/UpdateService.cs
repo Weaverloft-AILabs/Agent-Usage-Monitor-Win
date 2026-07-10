@@ -1,4 +1,5 @@
 using ClaudeUsageMonitor.App.Messaging;
+using ClaudeUsageMonitor.Core.Updates;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Hosting;
 using Velopack;
@@ -16,6 +17,9 @@ public sealed class UpdateService : BackgroundService
     // 2026-07-09 저장소 이관: 구 weavernoia1223/agent_usage_monitor → 신 Weaverloft-AILabs 조직.
     // 구 저장소에는 v1.0.12 브리지 릴리스까지만 게시 — 이전 설치본이 그걸 타고 여기로 넘어온다.
     private const string RepoUrl = "https://github.com/Weaverloft-AILabs/Agent-Usage-Monitor-Win";
+
+    /// <summary>메이저 점프 시 수동 다운로드 안내에 쓰는 릴리스 페이지 주소.</summary>
+    public const string ReleasesPageUrl = RepoUrl + "/releases/latest";
     private static readonly TimeSpan InitialDelay = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan CheckInterval = TimeSpan.FromHours(4);
 
@@ -35,6 +39,28 @@ public sealed class UpdateService : BackgroundService
     public UpdateInfo? Available { get; private set; }
 
     public string? AvailableVersionText => Available?.TargetFullRelease.Version.ToString();
+
+    /// <summary>발견된 업데이트가 메이저 버전 점프(예: 1.x→2.x)인지 — 인앱 설치 차단 대상.
+    /// 메이저 업그레이드는 수동 설치 필요: UI는 설치 대신 릴리스 페이지 링크로 안내한다.</summary>
+    public bool AvailableIsMajorJump =>
+        Available is { } update
+        && UpdateGate.IsMajorJump(CurrentVersionText, update.TargetFullRelease.Version.ToString());
+
+    /// <summary>버전 문자열과 메이저 점프 여부를 Available 1회 읽기에서 계산한 원자 쌍 (UI 표시용).
+    /// AvailableVersionText/AvailableIsMajorJump를 따로 읽으면 동시 CheckAsync로 쌍이 찢어질 수 있다.</summary>
+    public (string Version, bool MajorJump)? AvailableSnapshot
+    {
+        get
+        {
+            if (Available is not { } update)
+            {
+                return null;
+            }
+
+            var target = update.TargetFullRelease.Version.ToString();
+            return (target, UpdateGate.IsMajorJump(CurrentVersionText, target));
+        }
+    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -73,8 +99,10 @@ public sealed class UpdateService : BackgroundService
             Available = info;
             if (info is not null)
             {
-                WeakReferenceMessenger.Default.Send(
-                    new UpdateAvailableMessage(info.TargetFullRelease.Version.ToString()));
+                // 버전 문자열과 메이저 점프 여부를 같은 UpdateInfo에서 계산해 원자 쌍으로 발행
+                var target = info.TargetFullRelease.Version.ToString();
+                WeakReferenceMessenger.Default.Send(new UpdateAvailableMessage(
+                    target, UpdateGate.IsMajorJump(CurrentVersionText, target)));
                 return true;
             }
             return false;
@@ -92,8 +120,11 @@ public sealed class UpdateService : BackgroundService
     /// <summary>업데이트 다운로드 후 재시작하며 적용. progress는 0~100.</summary>
     public async Task DownloadAndApplyAsync(Action<int>? progress = null)
     {
-        if (Available is not { } update)
+        if (Available is not { } update
+            || UpdateGate.IsMajorJump(CurrentVersionText, update.TargetFullRelease.Version.ToString()))
         {
+            // 메이저 점프는 인앱 설치 금지. 판정은 캡처한 update 기준 —
+            // Available 재독취는 동시 CheckAsync와의 TOCTOU로 다른 UpdateInfo를 설치할 수 있음
             return;
         }
 

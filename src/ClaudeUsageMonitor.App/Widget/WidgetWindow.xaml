@@ -50,7 +50,7 @@
                  Foreground="{DynamicResource PredictionBrush}"
                  VerticalAlignment="Center" Margin="2,0,4,0"
                  Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVis}}"
-                 ToolTip="새 버전 사용 가능 — 우클릭 메뉴에서 업데이트 설치"/>
+                 ToolTip="{Binding UpdateBadgeToolTip}"/>
     </StackPanel>
   </Border>
 </Window>

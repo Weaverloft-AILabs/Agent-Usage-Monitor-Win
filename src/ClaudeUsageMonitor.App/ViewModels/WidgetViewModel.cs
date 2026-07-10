@@ -49,6 +49,10 @@ public partial class WidgetViewModel : ObservableObject,
     [ObservableProperty]
     private bool _updateAvailable;
 
+    /// <summary>업데이트 배지 툴팁 — 메이저 점프면 "수동 다운로드" 안내로 문구 전환.</summary>
+    [ObservableProperty]
+    private string _updateBadgeToolTip = "";
+
     /// <summary>Claude Code CLI 미설치/로그인 정보 불가독 — 게이지 대신 경고 문구 표시.</summary>
     [ObservableProperty]
     private bool _cliMissing;
@@ -68,7 +72,13 @@ public partial class WidgetViewModel : ObservableObject,
         }
     }
 
-    public void Receive(UpdateAvailableMessage message) => UpdateAvailable = true;
+    public void Receive(UpdateAvailableMessage message)
+    {
+        UpdateAvailable = true;
+        UpdateBadgeToolTip = message.MajorJump
+            ? "새 주요 버전 사용 가능 — 우클릭 메뉴에서 다운로드 페이지 열기"
+            : "새 버전 사용 가능 — 우클릭 메뉴에서 업데이트 설치";
+    }
 
     public void Receive(RateLimitUpdatedMessage message)
     {

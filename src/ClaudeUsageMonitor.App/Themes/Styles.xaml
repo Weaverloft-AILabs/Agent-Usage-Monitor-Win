@@ -219,4 +219,15 @@
     <Setter Property="Padding" Value="16,6"/>
     <Setter Property="Margin" Value="0,0,0,14"/>
   </Style>
+
+  <!-- 하이퍼링크 (암시적) — WPF 기본 #0066CC는 다크 카드 위 대비 ~2.5:1로 부족, 테마 브러시로 교체.
+       AGPL 고지·수동 다운로드 링크 등 앱의 모든 Hyperlink에 적용 -->
+  <Style TargetType="Hyperlink">
+    <Setter Property="Foreground" Value="{DynamicResource HyperlinkBrush}"/>
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Foreground" Value="{DynamicResource HyperlinkHoverBrush}"/>
+      </Trigger>
+    </Style.Triggers>
+  </Style>
 </ResourceDictionary>

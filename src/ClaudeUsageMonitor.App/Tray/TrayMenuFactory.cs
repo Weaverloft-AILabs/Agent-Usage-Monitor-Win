@@ -52,7 +52,10 @@ public static class TrayMenuFactory
         {
             if (viewModel.UpdateVersion is { } version)
             {
-                update.Header = $"⬆ v{version} 업데이트 설치";
+                // 메이저 점프는 인앱 설치 불가 — 클릭 시 릴리스 페이지가 열린다 (InstallUpdateCommand 내 분기)
+                update.Header = viewModel.UpdateIsMajorJump
+                    ? $"⬆ v{version} — GitHub에서 수동 다운로드"
+                    : $"⬆ v{version} 업데이트 설치";
                 update.Visibility = System.Windows.Visibility.Visible;
             }
             else

@@ -51,7 +51,14 @@ public partial class SettingsViewModel : ObservableObject, IRecipient<UpdateAvai
     [ObservableProperty]
     private string _updateStatusText = "";
 
+    /// <summary>메이저 점프 업데이트 버전 (빈 문자열이면 수동 설치 안내 숨김).</summary>
+    [ObservableProperty]
+    private string _majorUpdateVersion = "";
+
     public string CurrentVersionText { get; }
+
+    /// <summary>수동 다운로드 링크 대상 — URL 단일 소스(UpdateService 상수)를 XAML NavigateUri에 바인딩.</summary>
+    public Uri ReleasesPageUri { get; } = new(Services.UpdateService.ReleasesPageUrl);
 
     public SettingsViewModel(
         MonitorSettings settings, SettingsStore store, MonitorPaths paths, Services.UpdateService updater)
@@ -61,8 +68,20 @@ public partial class SettingsViewModel : ObservableObject, IRecipient<UpdateAvai
         _paths = paths;
         _updater = updater;
         CurrentVersionText = "v" + updater.CurrentVersionText;
-        _updateVersionText = updater.AvailableVersionText ?? "";
         WeakReferenceMessenger.Default.Register(this);
+        // Register 후 스냅샷 — 등록 전에 발행된 메시지의 유실 창을 닫는다.
+        // (동시 CheckAsync가 사이에 끼어도 그 결과는 곧 도착하는 메시지가 재보정)
+        if (updater.AvailableSnapshot is { } available)
+        {
+            if (available.MajorJump)
+            {
+                _majorUpdateVersion = available.Version;
+            }
+            else
+            {
+                _updateVersionText = available.Version;
+            }
+        }
 
         _pollIntervalSeconds = settings.PollIntervalSeconds;
         _warnThresholdPct = settings.WarnThresholdPct;
@@ -116,8 +135,20 @@ public partial class SettingsViewModel : ObservableObject, IRecipient<UpdateAvai
 
     public void Receive(UpdateAvailableMessage message)
     {
-        UpdateVersionText = message.Version;
-        UpdateStatusText = $"새 버전 v{message.Version} 사용 가능";
+        // message.Version/MajorJump는 같은 UpdateInfo에서 계산된 원자 쌍 — 라이브 재독취 금지 (경합 시 불일치)
+        if (message.MajorJump)
+        {
+            // 메이저 업그레이드: 인앱 설치 버튼을 숨기고 수동 설치 링크로 안내
+            UpdateVersionText = "";
+            MajorUpdateVersion = message.Version;
+            UpdateStatusText = $"새 주요 버전 v{message.Version} — 인앱 업데이트 미지원";
+        }
+        else
+        {
+            MajorUpdateVersion = "";
+            UpdateVersionText = message.Version;
+            UpdateStatusText = $"새 버전 v{message.Version} 사용 가능";
+        }
     }
 
     [RelayCommand]
@@ -131,16 +162,13 @@ public partial class SettingsViewModel : ObservableObject, IRecipient<UpdateAvai
 
         UpdateStatusText = "확인 중...";
         var found = await _updater.CheckAsync();
-        if (found)
-        {
-            UpdateVersionText = _updater.AvailableVersionText ?? "";
-            UpdateStatusText = $"새 버전 v{UpdateVersionText} 사용 가능";
-        }
-        else
+        if (!found)
         {
             UpdateVersionText = "";
+            MajorUpdateVersion = "";
             UpdateStatusText = "최신 버전입니다";
         }
+        // found면 CheckAsync가 보낸 UpdateAvailableMessage(버전+메이저 원자 쌍)를 Receive가 이미 처리함
     }
 
     [RelayCommand]
@@ -150,7 +178,22 @@ public partial class SettingsViewModel : ObservableObject, IRecipient<UpdateAvai
         {
             UpdateStatusText = "다운로드 중...";
             await _updater.DownloadAndApplyAsync(p => UpdateStatusText = $"다운로드 중... {p}%");
-            // 성공 시 앱이 재시작되므로 여기 도달하지 않음
+            // 성공하면 앱이 재시작되므로 여기 도달 = 서비스 가드가 설치를 시작하지 않은 no-op 경로.
+            // "다운로드 중..." 그대로 방치하지 않도록 실제 상태로 재동기화한다 (원자 스냅샷 1회 읽기).
+            if (_updater.AvailableSnapshot is { } available)
+            {
+                Receive(new UpdateAvailableMessage(available.Version, available.MajorJump));
+                if (!available.MajorJump)
+                {
+                    UpdateStatusText = "업데이트가 시작되지 않았습니다 — 다시 확인해 주세요";
+                }
+            }
+            else
+            {
+                UpdateVersionText = "";
+                MajorUpdateVersion = "";
+                UpdateStatusText = "최신 버전입니다";
+            }
         }
         catch (Exception ex) when (ex is System.Net.Http.HttpRequestException or System.IO.IOException)
         {

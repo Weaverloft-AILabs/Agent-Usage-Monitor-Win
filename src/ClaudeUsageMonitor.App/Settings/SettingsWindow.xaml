@@ -221,6 +221,20 @@
             </Style>
           </TextBlock.Style>
         </TextBlock>
+        <!-- 메이저 버전 업그레이드: 인앱 설치 차단 — 수동 다운로드 안내 (AGPL 링크와 동일 핸들러) -->
+        <TextBlock FontSize="11" Margin="0,0,0,8" TextWrapping="Wrap">
+          <TextBlock.Style>
+            <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding MajorUpdateVersion}" Value="">
+                  <Setter Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </TextBlock.Style>
+          <Run Text="새 주요 버전 v"/><Run Text="{Binding MajorUpdateVersion, Mode=OneWay}" FontWeight="Bold"/><Run Text=" &#x2014; 설치 방식이 달라 수동 설치가 필요합니다. "/><Hyperlink NavigateUri="{Binding ReleasesPageUri}"
+                     RequestNavigate="OnSourceLinkNavigate">GitHub 릴리스에서 다운로드</Hyperlink>
+        </TextBlock>
       </StackPanel>
     </Border>
 

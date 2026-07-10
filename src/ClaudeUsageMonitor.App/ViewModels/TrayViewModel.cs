@@ -56,11 +56,21 @@ public partial class TrayViewModel : ObservableObject,
     /// <summary>발견된 업데이트 버전 (없으면 null — 메뉴 항목 숨김).</summary>
     public string? UpdateVersion => _updater.AvailableVersionText;
 
+    /// <summary>발견된 업데이트가 메이저 점프라 수동 설치가 필요한지 (메뉴 라벨/클릭 동작 분기).</summary>
+    public bool UpdateIsMajorJump => _updater.AvailableIsMajorJump;
+
     public void Receive(UpdateAvailableMessage message) => OnPropertyChanged(nameof(UpdateVersion));
 
     [RelayCommand]
     private async Task InstallUpdateAsync()
     {
+        if (_updater.AvailableIsMajorJump)
+        {
+            // 메이저 업그레이드는 인앱 설치 금지 — 릴리스 페이지를 열어 수동 설치 안내
+            OpenReleasesPage();
+            return;
+        }
+
         try
         {
             await _updater.DownloadAndApplyAsync(); // 완료 시 앱이 재시작됨
@@ -68,6 +78,22 @@ public partial class TrayViewModel : ObservableObject,
         catch (Exception ex) when (ex is System.Net.Http.HttpRequestException or System.IO.IOException)
         {
             // 네트워크/디스크 오류 — 다음 시도까지 무시 (메뉴에서 재시도 가능)
+        }
+    }
+
+    private static void OpenReleasesPage()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = UpdateService.ReleasesPageUrl,
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            // 브라우저 실행 실패 — 무시 (메뉴에서 재시도 가능)
         }
     }
 
