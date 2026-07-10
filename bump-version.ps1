@@ -36,7 +36,9 @@ if ($DryRun) { Write-Host '(dry run - no changes made)'; exit 0 }
 [System.IO.File]::WriteAllText(
     $csproj, $content.Replace("<Version>$old</Version>", "<Version>$new</Version>"))
 
-Push-Location (Split-Path -Parent $root)   # repo root = dev/
+Push-Location $root   # repo root = source 저장소 루트 (2026-07-10 저장소 분리)
+# git의 stderr 경고(LF/CRLF 등)가 Stop 정책에서 오류로 승격되지 않도록 — 실패 판정은 $LASTEXITCODE로
+$ErrorActionPreference = 'Continue'
 try {
     git add $csproj
     git commit -m "chore: bump version to $new"

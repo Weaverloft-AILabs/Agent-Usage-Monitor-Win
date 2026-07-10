@@ -1,54 +1,80 @@
-# Claude Usage Monitor for Windows
+# Agent Usage Monitor
 
-Claude Code CLI 사용자의 **5시간/주간 사용률**(공식 수치)과 **일/주/월 토큰·USD 비용**(로컬 집계)을
-표시하는 Windows 트레이/위젯/대시보드 앱.
+Claude Code CLI 사용량(5시간/주간 한도, 일·주·월 토큰/비용)을 Windows 작업표시줄에서 실시간으로 보여주는 위젯입니다.
 
-## 기능
+작업표시줄 안에 5시간/주간 게이지 2줄 · 트레이 아이콘 · 대시보드(차트/모델별 비용) · 한도 소진 예측
 
-- 시스템 트레이 아이콘: 5시간 사용률 링 + 우클릭 메뉴(새로고침 / 임계값 / 대시보드 / 표시 모드 / 자동 시작 / 종료)
-- **Taskbar 모드**: 작업표시줄 위 도킹 미니바 — 5시간·주간 게이지 + 리셋 카운트다운 동시 표시
-- **Floating 모드**: 드래그 가능한 항상-위 위젯 (위치 기억)
-- 대시보드: 사용률 게이지, 현재 사용 중인 프로젝트(라이브 세션), 일/주/월 토큰 차트 + USD 비용 라인, 모델별 분해
-- 5시간 사용률 임계값 경고 알림 (리셋 윈도우당 1회)
-- 전체화면 앱 실행 시 위젯 자동 숨김, 단일 인스턴스
+## 설치 방법 (일반 사용자)
 
-## 데이터 소스
+### 준비물
 
-| 데이터 | 소스 |
-|---|---|
-| 5시간/주간 % | `api.anthropic.com/api/oauth/usage` (로컬 CLI 로그인 토큰 사용, 180초+ 폴링) |
-| 토큰/비용 통계 | `~/.claude/projects/**/*.jsonl` 증분 파싱 + 자체 롤업(`%LOCALAPPDATA%\ClaudeUsageMonitor`) |
-| 가격 | LiteLLM 가격 DB(7일 캐시) + 내장 폴백 테이블 |
+- **Windows 10/11 (64비트)** — 별도 런타임 설치 불필요 (자체 포함 실행 파일)
+- **Claude Code CLI** — 이 프로그램은 PC에 설치·로그인된 Claude Code의 사용량을 보여줍니다.
+  아직 없다면 [Claude Code 설치 안내](https://docs.anthropic.com/en/docs/claude-code) 후
+  터미널에서 `claude` 실행 → 로그인해 주세요.
+  (CLI가 없어도 설치는 되지만, 위젯에 **"⚠ Claude Code 미감지"** 경고가 표시됩니다 —
+  로그인하면 자동으로 복구됩니다)
 
-이 앱은 **OAuth 토큰을 절대 갱신(refresh)하지 않으며**, 토큰을 저장/로깅하지 않습니다.
-Claude Code가 30일(기본) 지난 로그를 자동 삭제하므로, 월간 통계는 앱 자체 롤업으로 보존됩니다
-(최초 실행 시점 이전 데이터는 복원 불가 — "집계 시작" 라벨 표시).
+### 설치 (권장: 인스톨러)
 
-## 요구 사항
+1. **[최신 릴리스 페이지](https://github.com/Weaverloft-AILabs/Agent-Usage-Monitor-Win/releases/latest)**에서
+   `AgentUsageMonitor-win-Setup.exe`를 다운로드합니다.
+2. 다운로드한 파일을 실행합니다 — 관리자 권한 불필요, 사용자 폴더
+   (`%LOCALAPPDATA%\AgentUsageMonitor`)에 설치됩니다.
+3. 설치가 끝나면 작업표시줄(시계 왼쪽)에 사용량 위젯이 나타납니다.
 
-- Windows 10/11, Claude Code CLI 로그인 상태 (`~/.claude/.credentials.json`)
-- 개발: .NET 10 SDK
+설치 후 할 수 있는 것:
 
-## 빌드 / 테스트 / 실행
+- **위젯 우클릭** → 새로고침 / 대시보드 / 표시 모드(도킹·플로팅·숨김) / 설정
+- **위젯 더블클릭** → 대시보드 (일/주/월 토큰·비용 차트, 모델별 비용, 현재 프로젝트)
+- **설정** → 새로고침 주기, 사용량 경고 알림 on/off·임계값, 테마, Windows 시작 시 실행
+
+### "Windows의 PC 보호" (SmartScreen) 경고가 뜨는 경우
+
+이 프로그램은 아직 코드서명 인증서로 서명되지 않아, 다운로드 직후 실행하면
+Microsoft Defender SmartScreen이 "인식할 수 없는 앱"으로 표시할 수 있습니다.
+
+> **추가 정보** 클릭 → **실행** 버튼 선택
+
+소스가 공개된 저장소의 GitHub Actions에서 그대로 빌드된 파일이며,
+릴리스별 빌드 과정은 Actions 로그로 확인할 수 있습니다.
+(서명 인증서 적용 시 이 경고는 사라질 예정입니다)
+
+### 무설치(포터블)로 쓰고 싶다면
+
+`AgentUsageMonitor-win-Portable.zip`을 받아 원하는 폴더에 풀고 실행하면 됩니다.
+단, 포터블 실행에서는 **자동 업데이트가 동작하지 않습니다** — 인스톨러 사용을 권장합니다.
+
+### 업데이트
+
+설치판은 새 버전을 자동 감지합니다(주기 확인 + 수동 새로고침 시에도 확인).
+새 버전이 있으면 위젯 오른쪽에 **⬆ 아이콘**이 표시되며,
+위젯 우클릭 메뉴의 "⬆ vX.Y.Z 업데이트 설치" 또는 설정 창에서 원클릭으로 적용됩니다.
+
+### 제거
+
+Windows **설정 > 앱 > 설치된 앱 > Agent Usage Monitor**에서 제거합니다.
+제거 시 로컬 데이터(월간 통계 롤업·설정)도 함께 삭제됩니다 —
+통계를 남기고 싶다면 제거 전 `%LOCALAPPDATA%\AgentUsageMonitor.Data`를 백업해 두세요.
+
+## 주요 기능
+
+- **작업표시줄 위젯**: 5시간/주간 사용률 게이지 + 리셋 카운트다운 + 한도 소진 예측, 드래그로 위치 이동(멀티모니터 지원)
+- **대시보드**: 일/주/월 토큰·비용 차트, 모델별 비용 분해, 현재 사용 중인 프로젝트
+- **사용량 경고**: 5시간 사용률이 임계값 도달 시 1회 알림 (설정에서 on/off·임계값 조정)
+- **자동 업데이트**: 새 버전 자동 감지 → 위젯 메뉴/설정에서 원클릭 업데이트
+- 다크/라이트/시스템 테마 · 문의하기(대시보드 내)
+
+## 빌드 (개발자)
 
 ```powershell
-dotnet build ClaudeUsageMonitor.slnx
-dotnet test tests\ClaudeUsageMonitor.Core.Tests
-dotnet run --project src\ClaudeUsageMonitor.App           # 트레이로 시작
-dotnet run --project src\ClaudeUsageMonitor.App -- --dashboard  # 대시보드 즉시 열기
+dotnet build source/ClaudeUsageMonitor.slnx
+dotnet test source/tests/ClaudeUsageMonitor.Core.Tests
+source/publish.ps1   # self-contained 단일 exe
 ```
 
-## 배포 (무설치 단일 exe)
+자세한 배포 절차는 `devtool/work-docs/DISTRIBUTION.md` 참조.
 
-```powershell
-.\publish.ps1
-# → artifacts\publish\ClaudeUsageMonitor.App.exe (~70MB, .NET 설치 불필요)
-```
+---
 
-## 구조
-
-- `src/ClaudeUsageMonitor.Core` — 엔진 (JSONL 인제스트/중복 제거/롤업, usage API, 가격). UI 무의존
-- `src/ClaudeUsageMonitor.App` — WPF UI (트레이/위젯/대시보드/설정)
-- `tests/` — xUnit (실측 로그 기반 픽스처)
-
-상세 설계: `../devtool/.claude/design/DESIGN.md`
+© WeaverLoft inc. AILabs

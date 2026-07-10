@@ -1,0 +1,97 @@
+# 태그(v*) 푸시 시 자동 릴리스: 테스트 → publish → vpk pack(델타) → GitHub Release 업로드
+# 사용법: bump-version.ps1 실행 (csproj <Version> 범프 + 태그 + 푸시)
+# 수동 실행(workflow_dispatch): 빌드/테스트/publish만 수행 — 릴리스 업로드 없음 (파이프라인 검증용)
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write   # 릴리스 생성/자산 업로드
+
+jobs:
+  release:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Version from tag
+        id: ver
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $v = "${{ github.ref_name }}".TrimStart("v")
+          } else {
+            $v = "0.0.0"   # workflow_dispatch 검증 실행
+          }
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Test
+        run: dotnet test tests/ClaudeUsageMonitor.Core.Tests -c Release
+
+      - name: Publish (self-contained single exe)
+        run: >-
+          dotnet publish src/ClaudeUsageMonitor.App -c Release -r win-x64
+          --self-contained true -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true
+          -p:Version=${{ steps.ver.outputs.version }}
+          -o artifacts/publish
+
+      - name: Install vpk
+        if: github.ref_type == 'tag'
+        run: dotnet tool install -g vpk
+
+      # 이전 릴리스를 받아두면 vpk가 델타 패키지를 생성 (자동 업데이트 다운로드 최소화)
+      - name: Download previous release for deltas
+        if: github.ref_type == 'tag'
+        continue-on-error: true   # 첫 릴리스에는 이전 릴리스가 없음
+        run: >-
+          vpk download github --repoUrl https://github.com/${{ github.repository }}
+          --token ${{ secrets.GITHUB_TOKEN }} -o artifacts/installer
+
+      # 코드서명 (선택): 저장소 시크릿 VPK_SIGN_PARAMS에 signtool 인자를 넣으면 서명 활성화
+      #   예) Azure Trusted Signing:
+      #       /v /fd SHA256 /tr http://timestamp.acs.microsoft.com /td SHA256
+      #       /dlib "...\Azure.CodeSigning.Dlib.dll" /dmdf "...\metadata.json"
+      #   시크릿이 없으면 무서명 팩 (SmartScreen 경고 발생)
+      - name: Pack installer
+        if: github.ref_type == 'tag'
+        env:
+          VPK_SIGN_PARAMS: ${{ secrets.VPK_SIGN_PARAMS }}
+        run: |
+          $packArgs = @(
+            'pack',
+            '--packId', 'AgentUsageMonitor',
+            '--packVersion', '${{ steps.ver.outputs.version }}',
+            '--packDir', 'artifacts/publish',
+            '--mainExe', 'Agent Usage Monitor.exe',
+            '--packTitle', 'Agent Usage Monitor',
+            '--packAuthors', 'WeaverLoft inc. AILabs',
+            '--icon', 'src/ClaudeUsageMonitor.App/Assets/icon.ico',
+            '-o', 'artifacts/installer'
+          )
+          if ($env:VPK_SIGN_PARAMS) {
+            Write-Host 'code signing enabled'
+            $packArgs += @('--signParams', $env:VPK_SIGN_PARAMS)
+          }
+          else {
+            Write-Host 'no VPK_SIGN_PARAMS secret - packing unsigned'
+          }
+          vpk @packArgs
+
+      - name: Upload GitHub release
+        if: github.ref_type == 'tag'
+        run: >-
+          vpk upload github --repoUrl https://github.com/${{ github.repository }}
+          --token ${{ secrets.GITHUB_TOKEN }} --publish
+          --releaseName "Agent Usage Monitor ${{ steps.ver.outputs.version }}"
+          --tag ${{ github.ref_name }} --targetCommitish ${{ github.sha }}
+          -o artifacts/installer

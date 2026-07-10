@@ -1,0 +1,17 @@
+# Build outputs
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+publish/
+
+# IDE
+.vs/
+*.user
+*.suo
+.idea/
+
+# Test results
+TestResults/
+*.trx
