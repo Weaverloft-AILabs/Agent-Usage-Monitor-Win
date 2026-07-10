@@ -75,6 +75,7 @@ public partial class App : Application
 
         var paths = MonitorPaths.Default();
         Directory.CreateDirectory(paths.DataDirectory);
+        Widget.Native.NativeWidgetLog.Initialize(paths.DataDirectory);
 
         _host = BuildHost(paths);
         _host.Start();
@@ -96,13 +97,17 @@ public partial class App : Application
         trayViewModel.SettingsRequested += ShowSettings;
         _tray = new TrayIconHost(trayViewModel);
 
-        _widget = new WidgetWindow(_host.Services.GetRequiredService<WidgetViewModel>())
+        var widgetViewModel = _host.Services.GetRequiredService<WidgetViewModel>();
+        _widget = new WidgetWindow(widgetViewModel)
         {
             ContextMenu = TrayMenuFactory.Create(trayViewModel), // 트레이와 동일 메뉴
         };
         _widget.DashboardRequested += ShowDashboard; // 더블클릭 → 대시보드
+        var nativeWidgetHost = new Widget.Native.NativeWidgetHost(
+            _widget, widgetViewModel, settings, _host.Services.GetRequiredService<SettingsStore>());
+        nativeWidgetHost.DashboardRequested += ShowDashboard; // 임베드 위젯 더블클릭 → 대시보드
         _widgetController = new WidgetController(
-            _widget, settings, _host.Services.GetRequiredService<SettingsStore>());
+            _widget, settings, _host.Services.GetRequiredService<SettingsStore>(), nativeWidgetHost);
         _widgetController.TaskbarRecreated += () => _tray?.Reinstall();
         _widgetController.ApplyMode(settings.Mode);
 

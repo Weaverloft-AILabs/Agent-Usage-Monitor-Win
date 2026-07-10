@@ -4,6 +4,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using ClaudeUsageMonitor.App.Interop;
 using ClaudeUsageMonitor.App.Messaging;
+using ClaudeUsageMonitor.App.Widget.Native;
 using ClaudeUsageMonitor.Core.Models;
 using ClaudeUsageMonitor.Core.Settings;
 using CommunityToolkit.Mvvm.Messaging;
@@ -12,25 +13,34 @@ namespace ClaudeUsageMonitor.App.Widget;
 
 /// <summary>
 /// 위젯 창의 표시 모드(taskbar 도킹 / floating / 숨김)를 관리.
-/// - 도킹: 작업표시줄(주/보조) 내부 오버레이. 드래그로 자유 이동 가능하며 드롭 시 가장 가까운
-///   작업표시줄에 스냅하고 위치를 (모니터 장치명, 비율)로 저장 — 해상도/DPI 변화에 자동 적응.
+/// - taskbar 모드 1차 경로: 작업표시줄 자식으로 임베드(NativeWidgetHost) — 시작 메뉴/플라이아웃에도
+///   가려지지 않음. 임베드 실패가 반복되면 이 세션 동안 오버레이로 폴백.
+/// - 오버레이(폴백/floating): 드래그로 자유 이동, 드롭 시 가장 가까운 작업표시줄에 스냅하고
+///   위치를 (모니터 장치명, 비율)로 저장 — 해상도/DPI 변화에 자동 적응.
 /// - WM_SETTINGCHANGE/WM_DISPLAYCHANGE/WM_DPICHANGED에서 재도킹.
-/// - topmost 재주장 4경로: 포그라운드 변경 훅 / SHOW·HIDE·REORDER 훅(100ms 스로틀) /
+/// - 오버레이 topmost 재주장 4경로: 포그라운드 변경 훅 / SHOW·HIDE·REORDER 훅(100ms 스로틀) /
 ///   셸 이벤트 후 트레일링 버스트(150ms×8) / 1초 폴백 타이머 — 어느 것도 제거 금지.
 /// </summary>
 public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChangedMessage>
 {
     private const double DockMarginRight = 12;
     private const double DockGap = 6;
+    private const int EmbedFailureLimit = 3;
 
     private readonly WidgetWindow _window;
     private readonly MonitorSettings _settings;
     private readonly SettingsStore _settingsStore;
+    private readonly NativeWidgetHost _nativeHost;
     private readonly DispatcherTimer _topmostTimer;
     private readonly DispatcherTimer _burstTimer;
     private bool _hiddenByFullscreen;
     private int _lastReassertTick;
     private int _burstTicksLeft;
+
+    /// <summary>연속 임베드 실패 횟수 — 한도 도달 시 이 세션에서는 오버레이로 고정.</summary>
+    private int _embedFailStreak;
+    private bool _embedBroken;
+    private int _lastEmbedAttemptTick;
 
     // GC로 콜백이 수집되지 않도록 delegate를 필드로 유지 (필수)
     private readonly NativeMethods.WinEventDelegate _foregroundChanged;
@@ -42,11 +52,14 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
     /// <summary>Explorer 재시작으로 작업표시줄이 재생성됨 (트레이 아이콘 재설치 필요).</summary>
     public event Action? TaskbarRecreated;
 
-    public WidgetController(WidgetWindow window, MonitorSettings settings, SettingsStore settingsStore)
+    public WidgetController(
+        WidgetWindow window, MonitorSettings settings, SettingsStore settingsStore,
+        NativeWidgetHost nativeHost)
     {
         _window = window;
         _settings = settings;
         _settingsStore = settingsStore;
+        _nativeHost = nativeHost;
 
         _window.Moved += (left, top) =>
         {
@@ -82,7 +95,11 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
         {
             Interval = TimeSpan.FromSeconds(1),
         };
-        _topmostTimer.Tick += (_, _) => ReassertIfVisible();
+        _topmostTimer.Tick += (_, _) =>
+        {
+            CheckEmbedHealth();
+            ReassertIfVisible();
+        };
         _topmostTimer.Start();
 
         _foregroundChanged = (_, _, _, _, _, _, _) => ReassertIfVisible();
@@ -139,17 +156,25 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
     }
 
     public void Receive(WidgetModeChangedMessage message) =>
-        _window.Dispatcher.Invoke(() => ApplyMode(message.Mode));
+        _window.Dispatcher.Invoke(() =>
+        {
+            // 사용자 주도 재적용(설정 저장/메뉴) — 임베드에 새 기회 (자동 헬스체크는 리셋하지 않음)
+            _embedFailStreak = 0;
+            _embedBroken = false;
+            ApplyMode(message.Mode);
+        });
 
     public void ApplyMode(WidgetMode mode)
     {
         switch (mode)
         {
             case WidgetMode.Hidden:
+                _nativeHost.Deactivate();
                 _window.Hide();
                 break;
 
             case WidgetMode.Floating:
+                _nativeHost.Deactivate();
                 _window.AllowDrag = true;
                 _window.Show();
                 PositionFloating();
@@ -158,6 +183,12 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
 
             case WidgetMode.Taskbar:
             default:
+                if (TryEmbed())
+                {
+                    _window.Hide(); // 임베드 성공 — 오버레이 창은 숨김 (메뉴 소유자로만 사용)
+                    break;
+                }
+                _nativeHost.Deactivate();
                 _window.AllowDrag = true; // 작업표시줄 내 자유 이동 (드롭 시 스냅)
                 _window.Show();
                 Dock();
@@ -166,15 +197,61 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
         }
     }
 
+    /// <summary>임베드 시도 + 연속 실패 카운트. 한도 도달 시 이 세션에서는 오버레이 고정.</summary>
+    private bool TryEmbed()
+    {
+        if (!_settings.TaskbarEmbedEnabled || _embedBroken)
+        {
+            return false;
+        }
+        _lastEmbedAttemptTick = Environment.TickCount;
+        if (_nativeHost.TryActivate())
+        {
+            _embedFailStreak = 0;
+            return true;
+        }
+        if (++_embedFailStreak >= EmbedFailureLimit)
+        {
+            _embedBroken = true; // Windows 업데이트로 임베드가 깨진 경우 등 — 오버레이가 안전망
+            Native.NativeWidgetLog.Write($"embed broken after {EmbedFailureLimit} consecutive failures — overlay for this session");
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 1초 폴백 타이머에서 임베드 상태 감시 — Explorer 재시작으로 부모가 죽으면 자식 창도
+    /// 함께 파괴되므로(메시지 두절) 여기서 감지해 재임베드한다. 프로세스 재기동은 불필요.
+    /// 시작 시점의 일시 실패(셸 바쁨 등)도 5초 간격으로 재시도해 복구한다.
+    /// </summary>
+    private void CheckEmbedHealth()
+    {
+        if (_settings.Mode != WidgetMode.Taskbar || _hiddenByFullscreen ||
+            !_settings.TaskbarEmbedEnabled || _embedBroken)
+        {
+            return;
+        }
+        if (_nativeHost.IsActive && !_nativeHost.IsHealthy)
+        {
+            Native.NativeWidgetLog.Write("embed unhealthy (parent gone?) — re-embedding");
+            _nativeHost.Deactivate();
+            ApplyMode(WidgetMode.Taskbar);
+        }
+        else if (!_nativeHost.IsActive && Environment.TickCount - _lastEmbedAttemptTick >= 5000)
+        {
+            ApplyMode(WidgetMode.Taskbar); // 재시도 한도는 TryEmbed의 연속 실패 카운트가 관리
+        }
+    }
+
     /// <summary>전체화면 앱 감지 시 임시 숨김/복원 (Task 14에서 호출).</summary>
     public void SetFullscreenSuppressed(bool suppressed)
     {
         _window.Dispatcher.Invoke(() =>
         {
-            if (suppressed && _window.IsVisible)
+            if (suppressed && (_window.IsVisible || _nativeHost.IsActive))
             {
                 _hiddenByFullscreen = true;
                 _window.Hide();
+                _nativeHost.SetVisible(false);
             }
             else if (!suppressed && _hiddenByFullscreen)
             {
@@ -365,9 +442,17 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
         source?.AddHook((IntPtr _, int msg, IntPtr _, IntPtr _, ref bool _) =>
         {
             if (msg is NativeMethods.WM_SETTINGCHANGE or NativeMethods.WM_DISPLAYCHANGE or NativeMethods.WM_DPICHANGED &&
-                _settings.Mode == WidgetMode.Taskbar && _window.IsVisible)
+                _settings.Mode == WidgetMode.Taskbar && !_hiddenByFullscreen)
             {
-                _window.Dispatcher.BeginInvoke(Dock, DispatcherPriority.Background);
+                if (_nativeHost.IsActive)
+                {
+                    // 해상도/DPI/작업표시줄 배치 변경 — 재임베드 경로로 재도킹 (필요 시 재생성)
+                    _window.Dispatcher.BeginInvoke(() => ApplyMode(WidgetMode.Taskbar), DispatcherPriority.Background);
+                }
+                else if (_window.IsVisible)
+                {
+                    _window.Dispatcher.BeginInvoke(Dock, DispatcherPriority.Background);
+                }
             }
             if (_taskbarCreatedMessage != 0 && (uint)msg == _taskbarCreatedMessage)
             {
@@ -389,6 +474,7 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
     {
         _topmostTimer.Stop();
         _burstTimer.Stop();
+        _nativeHost.Dispose();
         if (_winEventHook != IntPtr.Zero)
         {
             NativeMethods.UnhookWinEvent(_winEventHook);

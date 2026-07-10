@@ -153,6 +153,21 @@
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="Auto"/>
           </Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
+            <TextBlock Text="작업표시줄 내장(임베드)" Style="{StaticResource RowLabel}"/>
+            <TextBlock Text="위젯을 작업표시줄 창 내부에 넣어 시작 메뉴·플라이아웃이 열려도 가려지지 않습니다. 표시 문제가 생기면 끄세요 (기존 방식으로 동작)"
+                       Style="{StaticResource RowHint}"/>
+          </StackPanel>
+          <CheckBox x:Name="EmbedToggle" Grid.Column="1" IsChecked="{Binding TaskbarEmbedEnabled}"/>
+        </Grid>
+
+        <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,2"/>
+
+        <Grid Margin="0,10">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
           <TextBlock Grid.Column="0" Text="Windows 시작 시 실행" Style="{StaticResource RowLabel}"/>
           <CheckBox Grid.Column="1" IsChecked="{Binding AutoStart}"/>
         </Grid>

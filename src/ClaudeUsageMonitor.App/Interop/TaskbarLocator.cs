@@ -14,9 +14,10 @@ public enum TaskbarEdge
 public readonly record struct TaskbarInfo(
     int Left, int Top, int Right, int Bottom, TaskbarEdge Edge, bool AutoHide);
 
-/// <summary>개별 작업표시줄(주/보조) — 물리 픽셀 RECT + 소속 모니터 장치명.</summary>
+/// <summary>개별 작업표시줄(주/보조) — 물리 픽셀 RECT + 소속 모니터 장치명 + 창 핸들.</summary>
 public readonly record struct TaskbarInstance(
-    int Left, int Top, int Right, int Bottom, TaskbarEdge Edge, bool IsPrimary, string MonitorDevice)
+    int Left, int Top, int Right, int Bottom, TaskbarEdge Edge, bool IsPrimary, string MonitorDevice,
+    IntPtr Hwnd)
 {
     public int Width => Right - Left;
     public int Height => Bottom - Top;
@@ -95,7 +96,7 @@ public static class TaskbarLocator
                 : TaskbarEdge.Right;
         }
 
-        return new TaskbarInstance(rect.Left, rect.Top, rect.Right, rect.Bottom, edge, isPrimary, device);
+        return new TaskbarInstance(rect.Left, rect.Top, rect.Right, rect.Bottom, edge, isPrimary, device, hwnd);
     }
 
     /// <summary>

@@ -40,6 +40,13 @@ public sealed class MonitorSettings
 
     public WidgetMode Mode { get; set; } = WidgetMode.Taskbar;
 
+    /// <summary>
+    /// Taskbar 모드에서 위젯을 작업표시줄 창(Shell_TrayWnd)의 자식으로 임베드.
+    /// 임베드되면 시작 메뉴/플라이아웃이 열려도 가려지지 않는다 (작업표시줄과 같은 z-밴드).
+    /// 끄거나 임베드가 실패하면 기존 topmost 오버레이 방식으로 동작.
+    /// </summary>
+    public bool TaskbarEmbedEnabled { get; set; } = true;
+
     public bool AutoStart { get; set; }
 
     public ThemePreference Theme { get; set; } = ThemePreference.Dark;

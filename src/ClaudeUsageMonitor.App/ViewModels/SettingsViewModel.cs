@@ -30,6 +30,9 @@ public partial class SettingsViewModel : ObservableObject, IRecipient<UpdateAvai
     private int _modeIndex;
 
     [ObservableProperty]
+    private bool _taskbarEmbedEnabled;
+
+    [ObservableProperty]
     private int _themeIndex;
 
     [ObservableProperty]
@@ -65,6 +68,7 @@ public partial class SettingsViewModel : ObservableObject, IRecipient<UpdateAvai
         _warnThresholdPct = settings.WarnThresholdPct;
         _warnNotificationEnabled = settings.WarnNotificationEnabled;
         _modeIndex = (int)settings.Mode;
+        _taskbarEmbedEnabled = settings.TaskbarEmbedEnabled;
         _themeIndex = (int)settings.Theme;
         _showExhaustionPrediction = settings.ShowExhaustionPrediction;
         _autoStart = AutoStartManager.IsEnabled();
@@ -74,11 +78,13 @@ public partial class SettingsViewModel : ObservableObject, IRecipient<UpdateAvai
     private void Save()
     {
         var previousMode = _settings.Mode;
+        var previousEmbed = _settings.TaskbarEmbedEnabled;
 
         _settings.PollIntervalSeconds = PollIntervalSeconds; // setter가 하한(20초) 강제
         _settings.WarnThresholdPct = Math.Clamp(WarnThresholdPct, 1, 100);
         _settings.WarnNotificationEnabled = WarnNotificationEnabled;
         _settings.Mode = (WidgetMode)Math.Clamp(ModeIndex, 0, 2);
+        _settings.TaskbarEmbedEnabled = TaskbarEmbedEnabled;
         _settings.Theme = (ThemePreference)Math.Clamp(ThemeIndex, 0, 2);
         _settings.ShowExhaustionPrediction = ShowExhaustionPrediction;
         _settings.AutoStart = AutoStart;
@@ -99,8 +105,9 @@ public partial class SettingsViewModel : ObservableObject, IRecipient<UpdateAvai
             return;
         }
 
-        if (_settings.Mode != previousMode)
+        if (_settings.Mode != previousMode || _settings.TaskbarEmbedEnabled != previousEmbed)
         {
+            // 임베드 on/off 변경도 같은 경로로 재적용 (컨트롤러가 임베드↔오버레이 전환)
             WeakReferenceMessenger.Default.Send(new WidgetModeChangedMessage(_settings.Mode));
         }
 
