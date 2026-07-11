@@ -2,9 +2,11 @@
 <assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
   <assemblyIdentity version="1.0.0.0" name="ClaudeUsageMonitor.App"/>
 
-  <!-- 명시적 asInvoker — 사용자 폴더(%LOCALAPPDATA%) 앱이므로 관리자 권한 불필요.
-       상승된 프로세스가 이 앱을 실행해도 무결성을 물려받지 않도록 방어(작업표시줄 임베드는 셸과
-       동일 무결성이어야 SetParent가 동작 — 상승 무결성이면 UIPI로 임베드/입력이 깨진다). -->
+  <!-- 명시적 asInvoker — 사용자 폴더(%LOCALAPPDATA%) 앱이라 관리자 권한 불필요, 모범관례로 명시.
+       주의: asInvoker는 "호출자와 동일 토큰으로 실행"이라 상승된 부모가 이 앱을 띄우면 여전히 High
+       무결성을 물려받는다(이 매니페스트가 그것을 막지는 못한다). 앱이 상승으로 실행되는 근본 차단은
+       인스톨러의 asInvoker(체인 전체를 Medium 유지)에 있다 — Installer/app.manifest 참고.
+       앱이 상승 무결성이면 작업표시줄 임베드(SetParent)와 셸 상호작용이 UIPI로 깨질 수 있다. -->
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
     <security>
       <requestedPrivileges>
