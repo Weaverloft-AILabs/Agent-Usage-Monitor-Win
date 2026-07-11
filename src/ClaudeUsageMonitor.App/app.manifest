@@ -2,6 +2,17 @@
 <assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
   <assemblyIdentity version="1.0.0.0" name="ClaudeUsageMonitor.App"/>
 
+  <!-- 명시적 asInvoker — 사용자 폴더(%LOCALAPPDATA%) 앱이므로 관리자 권한 불필요.
+       상승된 프로세스가 이 앱을 실행해도 무결성을 물려받지 않도록 방어(작업표시줄 임베드는 셸과
+       동일 무결성이어야 SetParent가 동작 — 상승 무결성이면 UIPI로 임베드/입력이 깨진다). -->
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
+    <security>
+      <requestedPrivileges>
+        <requestedExecutionLevel level="asInvoker" uiAccess="false" />
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+
   <application xmlns="urn:schemas-microsoft-com:asm.v3">
     <windowsSettings>
       <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>
