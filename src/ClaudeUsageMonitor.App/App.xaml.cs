@@ -34,6 +34,7 @@ public partial class App : Application
     private Inquiry.InquiryWindow? _inquiryWindow;
     private SingleInstance? _singleInstance;
     private FullscreenDetector? _fullscreenDetector;
+    private UpdateUi.UpdateProgressWindow? _updateWindow;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -104,11 +105,165 @@ public partial class App : Application
             _widgetController?.SetFullscreenSuppressed(suppressed);
         _fullscreenDetector.Start();
 
+        // 인앱 업데이트 창 열기 요청 (트레이 메뉴/설정 공용) — 단일 창 소유
+        WeakReferenceMessenger.Default.Register<App, OpenUpdateWindowMessage>(
+            this, (recipient, _) => recipient.Dispatcher.BeginInvoke(recipient.ShowUpdateWindow));
+
         if (e.Args.Contains("--dashboard"))
         {
             ShowDashboard();
         }
+
+        HandleUpdateContinuity(e.Args);
     }
+
+    /// <summary>인앱 업데이트의 재시작 연속성 — 적용~재시작 사이 무창 구간의 결과를 이어받는다.
+    /// ① --update-done &lt;ver&gt;: Update.exe가 적용 후 재시작하며 전달 — 버전 대조로 완료/실패 카드.
+    /// ② 인자 유실(마커만 존재): 다음 실행에서 마커 조정 — 완료/실패/진행 중 유예/스테일 폐기.</summary>
+    private void HandleUpdateContinuity(string[] args)
+    {
+        if (_host is null)
+        {
+            return;
+        }
+
+        var updater = _host.Services.GetRequiredService<UpdateService>();
+        var current = updater.CurrentVersionText;
+
+        string? doneVersion = null;
+        for (var i = 0; i < args.Length - 1; i++)
+        {
+            if (string.Equals(args[i], "--update-done", StringComparison.OrdinalIgnoreCase))
+            {
+                doneVersion = args[i + 1];
+            }
+        }
+
+        if (doneVersion is not null)
+        {
+            updater.PendingMarker.Delete();
+            ShowUpdateResult(Core.Updates.UpdatePendingMarker.IsApplied(current, doneVersion), doneVersion, current);
+            return;
+        }
+
+        var marker = updater.PendingMarker.TryRead();
+        switch (Core.Updates.UpdatePendingMarker.Assess(marker, current, DateTimeOffset.UtcNow))
+        {
+            case Core.Updates.PendingUpdateAssessment.Completed:
+                updater.PendingMarker.Delete();
+                ShowUpdateResult(applied: true, marker!.TargetVersion, current);
+                break;
+            case Core.Updates.PendingUpdateAssessment.Failed:
+                updater.PendingMarker.Delete();
+                ShowUpdateResult(applied: false, marker!.TargetVersion, current);
+                break;
+            case Core.Updates.PendingUpdateAssessment.Stale:
+                updater.PendingMarker.Delete();
+                break;
+            // InProgress: 유예 창 — 적용이 진행 중일 수 있으므로 침묵 (오경보 차단, 수정 필수 ②)
+        }
+    }
+
+    /// <summary>인앱 업데이트 진행 창 — 이미 열려 있으면 Activate (단일 창 소유, 수정 필수 ③).
+    /// TryBeginInstall이 null이면 창을 열지 않는다 (메이저 점프는 VM 분기가 릴리스 페이지로 안내).</summary>
+    private void ShowUpdateWindow()
+    {
+        if (_host is null)
+        {
+            return;
+        }
+
+        if (_updateWindow is { IsLoaded: true })
+        {
+            _updateWindow.Activate();
+            return;
+        }
+
+        var updater = _host.Services.GetRequiredService<UpdateService>();
+        if (updater.TryBeginInstall() is not { } flow)
+        {
+            return; // 게이트 차단/업데이트 소멸 — 기존 안내(설정 문구·메뉴 분기) 유지
+        }
+
+        var viewModel = new UpdateUi.UpdateFlowViewModel(
+            BuildAppUpdateTexts(flow.TargetVersion),
+            versionText: "v" + updater.CurrentVersionText,
+            logPath: VelopackLogPath,
+            repoUrl: UpdateService.RepoUrl,
+            releasesPageUrl: UpdateService.ReleasesPageUrl)
+        {
+            // 재시도 포함 매 시도마다 재캡처 — UpdateGate 캡처-스냅샷 판정이 항상 최신 스냅샷 기준
+            FlowFactory = updater.TryBeginInstall,
+        };
+        // Update.exe가 이 프로세스의 graceful 종료를 기다린다 — OnExit(임베드/트레이/뮤텍스 해제)가 실행됨
+        viewModel.PendingRestartRequested += () => Dispatcher.BeginInvoke(new Action(Shutdown));
+
+        _updateWindow = new UpdateUi.UpdateProgressWindow(viewModel);
+        _updateWindow.Closed += (_, _) => _updateWindow = null;
+        _updateWindow.Show();
+        _updateWindow.Activate();
+        _ = viewModel.StartFlowAsync(); // 앱 경로는 준비 상태 없이 즉시 진행 (사용자가 이미 설치를 눌렀음)
+    }
+
+    /// <summary>재시작 후 완료/실패 카드 — 진행 창과 같은 브랜드 창으로 결과만 표시.</summary>
+    private void ShowUpdateResult(bool applied, string targetVersion, string currentVersion)
+    {
+        if (_host is null || _updateWindow is { IsLoaded: true })
+        {
+            return;
+        }
+
+        var updater = _host.Services.GetRequiredService<UpdateService>();
+        var viewModel = new UpdateUi.UpdateFlowViewModel(
+            BuildAppUpdateTexts(targetVersion),
+            versionText: "v" + currentVersion,
+            logPath: VelopackLogPath,
+            repoUrl: UpdateService.RepoUrl,
+            releasesPageUrl: UpdateService.ReleasesPageUrl)
+        {
+            FlowFactory = updater.TryBeginInstall, // 실패 카드의 [다시 시도] — 재확인 전이면 null(no-op)
+        };
+        viewModel.PendingRestartRequested += () => Dispatcher.BeginInvoke(new Action(Shutdown));
+        if (applied)
+        {
+            viewModel.ShowDone();
+        }
+        else
+        {
+            viewModel.ShowFailure(new UpdateUi.InstallFailure(
+                UpdateUi.InstallFailureClass.Unknown,
+                $"expected v{targetVersion}, running v{currentVersion}",
+                "업데이트가 적용되지 않았습니다 — 다시 시도하거나 로그를 확인해 주세요."));
+        }
+
+        _updateWindow = new UpdateUi.UpdateProgressWindow(viewModel);
+        _updateWindow.Closed += (_, _) => _updateWindow = null;
+        _updateWindow.Show();
+        _updateWindow.Activate();
+    }
+
+    private static string VelopackLogPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "velopack", "velopack.log");
+
+    private static UpdateUi.UpdateFlowTexts BuildAppUpdateTexts(string targetVersion) => new()
+    {
+        WindowTitle = "Agent Usage Monitor 업데이트",
+        StepLabels = ["다운로드", "검증", "설치", "완료"],
+        ProgressHeadlines =
+        [
+            "다운로드 중입니다",
+            "다운로드를 검증하는 중입니다",
+            "설치 중입니다 — 앱을 다시 시작합니다",
+            "업데이트가 끝났습니다",
+        ],
+        DoneHeadline = "업데이트가 끝났습니다",
+        DoneSecondary = $"v{targetVersion} 이 적용되었습니다. 위젯이 작업표시줄에 다시 표시됩니다.",
+        DoneButton = "확인",
+        ErrorHeadline = "업데이트를 완료하지 못했습니다",
+        SlowHintText = "네트워크 상태에 따라 다운로드가 오래 걸릴 수 있습니다 — 잠시만 기다려 주세요.",
+        SlowHintStepIndex = 0,          // 앱 경로의 대기 구간은 다운로드뿐 (AV 관찰 구간 없음 — 허위 표시 금지)
+        LastCancellableStepIndex = 1,   // 마커 기록·적용 예약(2단계) 전까지만 취소 허용
+    };
 
     private void ShowDashboard()
     {

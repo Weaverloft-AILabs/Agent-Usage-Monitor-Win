@@ -35,6 +35,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ClaudeUsageMonitor.Core\ClaudeUsageMonitor.Core.csproj" />
+    <!-- 공용 브랜드 진행 창 + 상태머신 (인스톨러와 공유 — 옵션 A) -->
+    <ProjectReference Include="..\ClaudeUsageMonitor.UpdateUi\ClaudeUsageMonitor.UpdateUi.csproj" />
   </ItemGroup>
 
   <ItemGroup>

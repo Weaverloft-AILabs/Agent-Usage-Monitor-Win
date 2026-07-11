@@ -172,33 +172,17 @@ public partial class SettingsViewModel : ObservableObject, IRecipient<UpdateAvai
     }
 
     [RelayCommand]
-    private async Task InstallUpdateAsync()
+    private void InstallUpdate()
     {
-        try
+        if (!_updater.IsInstalled)
         {
-            UpdateStatusText = "다운로드 중...";
-            await _updater.DownloadAndApplyAsync(p => UpdateStatusText = $"다운로드 중... {p}%");
-            // 성공하면 앱이 재시작되므로 여기 도달 = 서비스 가드가 설치를 시작하지 않은 no-op 경로.
-            // "다운로드 중..." 그대로 방치하지 않도록 실제 상태로 재동기화한다 (원자 스냅샷 1회 읽기).
-            if (_updater.AvailableSnapshot is { } available)
-            {
-                Receive(new UpdateAvailableMessage(available.Version, available.MajorJump));
-                if (!available.MajorJump)
-                {
-                    UpdateStatusText = "업데이트가 시작되지 않았습니다 — 다시 확인해 주세요";
-                }
-            }
-            else
-            {
-                UpdateVersionText = "";
-                MajorUpdateVersion = "";
-                UpdateStatusText = "최신 버전입니다";
-            }
+            UpdateStatusText = "포터블/개발 실행 — 업데이트는 설치판에서 지원됩니다";
+            return;
         }
-        catch (Exception ex) when (ex is System.Net.Http.HttpRequestException or System.IO.IOException)
-        {
-            UpdateStatusText = "업데이트 실패 — 네트워크 상태 확인 후 다시 시도해 주세요";
-        }
+
+        // 진행률·오류는 공용 업데이트 창(UpdateProgressWindow — 인스톨러와 동일 UX)이 표시.
+        // 인라인 "다운로드 중 X%" 텍스트 경로는 창으로 일원화되어 제거됨.
+        WeakReferenceMessenger.Default.Send(new OpenUpdateWindowMessage());
     }
 
     [RelayCommand]

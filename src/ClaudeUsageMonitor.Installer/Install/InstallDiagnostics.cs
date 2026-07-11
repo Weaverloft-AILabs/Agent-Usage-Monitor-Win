@@ -2,24 +2,8 @@ using System.IO;
 
 namespace ClaudeUsageMonitor.Installer.Install;
 
-public enum InstallFailureClass
-{
-    /// <summary>다운로드/네트워크 실패.</summary>
-    Network,
-
-    /// <summary>Setup이 실행됐지만 velopack.log가 갱신되지 않음 — AV/EDR 진입 전 홀드 추정.</summary>
-    AntivirusHold,
-
-    /// <summary>Setup이 0이 아닌 코드로 종료 (로그에 원인 있음).</summary>
-    SetupError,
-
-    /// <summary>그 외 (exit 0인데 설치 산출물 없음 등).</summary>
-    Unknown,
-}
-
-/// <summary>실패 원인(원문)과 사용자 조치 안내 — 디자인 카드 오류 상태의 실패 클래스 매핑.</summary>
-public sealed record InstallFailure(InstallFailureClass Class, string Detail, string Advice);
-
+// InstallFailureClass/InstallFailure 타입은 UpdateUi로 이동(옵션 A — 앱 인앱 업데이트와 오류 카드 공유).
+// 분류 로직(이 클래스)은 인스톨러 고유(Setup exit code/velopack.log 해석)라 여기 남는다.
 public static class InstallDiagnostics
 {
     public const string NetworkAdvice = "네트워크 상태를 확인한 뒤 다시 시도해 주세요.";

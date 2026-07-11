@@ -1,4 +1,5 @@
 using ClaudeUsageMonitor.App.Messaging;
+using ClaudeUsageMonitor.Core;
 using ClaudeUsageMonitor.Core.Updates;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Hosting;
@@ -16,7 +17,8 @@ public sealed class UpdateService : BackgroundService
 {
     // 2026-07-09 저장소 이관: 구 weavernoia1223/agent_usage_monitor → 신 Weaverloft-AILabs 조직.
     // 구 저장소에는 v1.0.12 브리지 릴리스까지만 게시 — 이전 설치본이 그걸 타고 여기로 넘어온다.
-    private const string RepoUrl = "https://github.com/Weaverloft-AILabs/Agent-Usage-Monitor-Win";
+    /// <summary>저장소 페이지 (업데이트 창 푸터 링크 등 — URL 단일 소스).</summary>
+    public const string RepoUrl = "https://github.com/Weaverloft-AILabs/Agent-Usage-Monitor-Win";
 
     /// <summary>메이저 점프 시 수동 다운로드 안내에 쓰는 릴리스 페이지 주소.</summary>
     public const string ReleasesPageUrl = RepoUrl + "/releases/latest";
@@ -25,6 +27,12 @@ public sealed class UpdateService : BackgroundService
 
     private readonly UpdateManager _manager = new(new GithubSource(RepoUrl, null, prerelease: false));
     private readonly SemaphoreSlim _gate = new(1, 1);
+
+    /// <summary>적용 직전 기록되는 재시작 연속성 마커 (무창 구간의 결과를 재시작이 이어받음).</summary>
+    public UpdatePendingMarker PendingMarker { get; }
+
+    public UpdateService(MonitorPaths paths)
+        => PendingMarker = new UpdatePendingMarker(paths.DataDirectory);
 
     /// <summary>설치판에서 실행 중인지 (포터블/개발 실행이면 업데이트 불가).</summary>
     public bool IsInstalled => _manager.IsInstalled;
@@ -117,19 +125,19 @@ public sealed class UpdateService : BackgroundService
         }
     }
 
-    /// <summary>업데이트 다운로드 후 재시작하며 적용. progress는 0~100.</summary>
-    public async Task DownloadAndApplyAsync(Action<int>? progress = null)
+    /// <summary>인앱 설치 흐름 시작 시도 — 공용 진행 창(UpdateProgressWindow)에 넘길 흐름을 만든다.
+    /// 메이저 점프/업데이트 없음이면 null (창을 열지 않고 기존 수동 다운로드 안내 유지).
+    /// 판정은 캡처한 update 기준 — Available 재독취는 동시 CheckAsync와의 TOCTOU로
+    /// 다른 UpdateInfo를 설치할 수 있음 (구 DownloadAndApplyAsync의 가드 불변식을 그대로 계승).</summary>
+    public VelopackUpdateFlow? TryBeginInstall()
     {
         if (Available is not { } update
             || UpdateGate.IsMajorJump(CurrentVersionText, update.TargetFullRelease.Version.ToString()))
         {
-            // 메이저 점프는 인앱 설치 금지. 판정은 캡처한 update 기준 —
-            // Available 재독취는 동시 CheckAsync와의 TOCTOU로 다른 UpdateInfo를 설치할 수 있음
-            return;
+            return null;
         }
 
-        await _manager.DownloadUpdatesAsync(update, progress).ConfigureAwait(false);
-        _manager.ApplyUpdatesAndRestart(update);
+        return new VelopackUpdateFlow(_manager, _gate, update, PendingMarker);
     }
 
     public override void Dispose()

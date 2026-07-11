@@ -62,7 +62,7 @@ public partial class TrayViewModel : ObservableObject,
     public void Receive(UpdateAvailableMessage message) => OnPropertyChanged(nameof(UpdateVersion));
 
     [RelayCommand]
-    private async Task InstallUpdateAsync()
+    private void InstallUpdate()
     {
         if (_updater.AvailableIsMajorJump)
         {
@@ -71,14 +71,8 @@ public partial class TrayViewModel : ObservableObject,
             return;
         }
 
-        try
-        {
-            await _updater.DownloadAndApplyAsync(); // 완료 시 앱이 재시작됨
-        }
-        catch (Exception ex) when (ex is System.Net.Http.HttpRequestException or System.IO.IOException)
-        {
-            // 네트워크/디스크 오류 — 다음 시도까지 무시 (메뉴에서 재시도 가능)
-        }
+        // 진행/오류는 공용 업데이트 창(UpdateProgressWindow)이 표시 — App이 단일 창 소유로 처리
+        WeakReferenceMessenger.Default.Send(new OpenUpdateWindowMessage());
     }
 
     private static void OpenReleasesPage()

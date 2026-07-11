@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>ClaudeUsageMonitor.UpdateUi</RootNamespace>
+    <!-- 앱(인앱 업데이트)과 인스톨러가 공유하는 브랜드 진행 창 + 상태머신 (옵션 A: 표현 계층 공유) -->
+    <AssemblyName>ClaudeUsageMonitor.UpdateUi</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+
+</Project>
