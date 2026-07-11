@@ -67,15 +67,137 @@ public partial class InstallerViewModel : ObservableObject
     /// <summary>완료 후 [시작하기] 또는 취소 불가 상태 정리 시 창 닫기 요청.</summary>
     public event Action? CloseRequested;
 
+    private readonly string _bakedVersion;
+    private InstallPlan _plan;
+
+    /// <summary>설치본·최신 릴리스 감지 완료 전(주 버튼 비활성).</summary>
+    [ObservableProperty]
+    private bool _isDetecting = true;
+
     public InstallerViewModel(string? setupArgPath)
     {
         _setupArgPath = setupArgPath;
+        _bakedVersion = ResolveVersionText().TrimStart('v');
+        // 잠정값 — DetectAsync가 설치본 버전과 "실제 설치할 대상(최신 릴리스)"을 읽어 확정한다.
+        _plan = new InstallPlan(InstallMode.NotInstalled, null, _bakedVersion);
+    }
+
+    /// <summary>준비 상태에서 1회 호출 — 현재 설치본과 최신 릴리스를 비교해 설치/업데이트 모드를 확정.
+    /// 비교 대상은 인스톨러 자체 버전이 아니라 <b>실제 다운로드 대상(/releases/latest)</b>이라야
+    /// 라벨과 실제 설치 페이로드가 일치한다(구 인스톨러 재사용 시에도 정확).</summary>
+    public async Task DetectAsync()
+    {
+        try
+        {
+            var installed = InstallProbe.ReadInstalledVersion(SetupRunner.DefaultInstalledExePath);
+            string? latest = null;
+            try
+            {
+                using var client = new GitHubReleaseClient();
+                latest = await client.GetLatestVersionAsync(CancellationToken.None);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or IOException or OperationCanceledException)
+            {
+                // 오프라인/일시 오류 — 인스톨러 자체 버전으로 폴백 비교(최선의 근사)
+            }
+
+            _plan = InstallProbe.Decide(installed, latest ?? _bakedVersion);
+        }
+        finally
+        {
+            IsDetecting = false;
+            RaiseReadyProps();
+        }
+    }
+
+    private void RaiseReadyProps()
+    {
+        OnPropertyChanged(nameof(Mode));
+        OnPropertyChanged(nameof(CanAct));
+        OnPropertyChanged(nameof(PrimaryActionText));
+        OnPropertyChanged(nameof(ReadyPrimaryText));
+        OnPropertyChanged(nameof(ReadySecondaryText));
+        OnPropertyChanged(nameof(DoneHeadlineText));
     }
 
     public string VersionText { get; } = ResolveVersionText();
 
+    /// <summary>감지된 설치 상태(신규/업데이트/최신/다운그레이드) — E2E·진단용.</summary>
+    public InstallMode Mode => _plan.Mode;
+
+    /// <summary>감지 완료 전에는 주 버튼 비활성.</summary>
+    public bool CanAct => !IsDetecting;
+
+    /// <summary>업데이트 모드면 진행/완료 문구의 동사를 "업데이트"로 바꾼다.</summary>
+    private string Verb => _plan.Mode == InstallMode.Update ? "업데이트" : "설치";
+
+    /// <summary>준비 상태 주 버튼 라벨.</summary>
+    public string PrimaryActionText => IsDetecting
+        ? "확인 중..."
+        : _plan.Mode switch
+        {
+            InstallMode.Update => "업데이트",
+            InstallMode.UpToDate => "실행",
+            InstallMode.Downgrade => "실행",
+            _ => "지금 설치",
+        };
+
+    /// <summary>준비 상태 1행 안내 — 감지 결과 반영.</summary>
+    public string ReadyPrimaryText => IsDetecting
+        ? "설치 상태를 확인하는 중입니다..."
+        : _plan.Mode switch
+        {
+            InstallMode.Update =>
+                $"설치된 v{CleanVersion(_plan.InstalledVersion)} → v{_plan.TargetVersion} 으로 업데이트합니다.",
+            InstallMode.UpToDate => $"이미 최신 버전(v{_plan.TargetVersion})이 설치되어 있습니다.",
+            InstallMode.Downgrade => $"더 최신 버전(v{CleanVersion(_plan.InstalledVersion)})이 이미 설치되어 있습니다.",
+            _ => "Claude Code 사용량을 작업표시줄에서 실시간으로.",
+        };
+
+    /// <summary>준비 상태 2행(mono) 보조 안내.</summary>
+    public string ReadySecondaryText => _plan.Mode switch
+    {
+        InstallMode.UpToDate => "[실행]을 눌러 시작하거나 창을 닫으세요.",
+        InstallMode.Downgrade => "다운그레이드는 지원하지 않습니다. [실행]으로 현재 버전을 시작하세요.",
+        _ => InstallLocationText,
+    };
+
+    /// <summary>완료 상태 헤드라인 — 설치/업데이트 구분.</summary>
+    public string DoneHeadlineText => $"{Verb}가 끝났습니다";
+
     public string InstallLocationText =>
         @"%LOCALAPPDATA%\AgentUsageMonitor · 약 70 MB · 설치 후 자동 실행";
+
+    /// <summary>버전 표시용 — "v" 접두 제거 + 빌드메타(+) 절단 (프리릴리스는 유지).</summary>
+    private static string CleanVersion(string? v)
+    {
+        if (string.IsNullOrEmpty(v))
+        {
+            return "?";
+        }
+
+        var s = v.TrimStart('v', 'V');
+        var cut = s.IndexOf('+');
+        return cut >= 0 ? s[..cut] : s;
+    }
+
+    /// <summary>준비 상태 주 버튼: 설치/업데이트는 Setup 실행, 최신/다운그레이드는 실행만.</summary>
+    [RelayCommand]
+    private async Task PrimaryAction()
+    {
+        if (IsDetecting)
+        {
+            return;
+        }
+
+        if (_plan.Mode is InstallMode.UpToDate or InstallMode.Downgrade)
+        {
+            Launch();
+            return;
+        }
+
+        await InstallAsync();
+    }
 
     /// <summary>게이지 필 실폭(px).</summary>
     public double GaugeWidth => Math.Clamp(GaugePct, 0, 100) / 100.0 * BodyWidth;
@@ -205,8 +327,8 @@ public partial class InstallerViewModel : ObservableObject
         {
             InstallStage.Download => ("다운로드 중입니다", "0%"),
             InstallStage.SecurityScan => ("보안 검사 중입니다", "2/4 단계"),
-            InstallStage.Install => ("설치 중입니다", "3/4 단계"),
-            _ => ("설치가 끝났습니다", "4/4 단계"),
+            InstallStage.Install => ($"{Verb} 중입니다", "3/4 단계"),
+            _ => ($"{Verb}가 끝났습니다", "4/4 단계"),
         };
         DownloadStepState = StepState(InstallStage.Download, stage);
         ScanStepState = StepState(InstallStage.SecurityScan, stage);
@@ -284,8 +406,18 @@ public partial class InstallerViewModel : ObservableObject
     [RelayCommand]
     private void Launch()
     {
-        TryShellStart(SetupRunner.DefaultInstalledExePath);
-        CloseRequested?.Invoke();
+        // 실행 성공 시에만 창을 닫는다 — 설치본이 사라졌거나 실행 불가면 피드백 없이 닫히면 안 됨
+        if (TryShellStart(SetupRunner.DefaultInstalledExePath))
+        {
+            CloseRequested?.Invoke();
+        }
+        else
+        {
+            ShowFailure(new InstallFailure(
+                InstallFailureClass.Unknown,
+                "설치된 앱을 실행할 수 없습니다.",
+                "설치가 손상되었을 수 있습니다 — 다시 설치해 주세요."));
+        }
     }
 
     [RelayCommand]
@@ -301,16 +433,18 @@ public partial class InstallerViewModel : ObservableObject
     [RelayCommand]
     private void OpenReleases() => TryShellStart(InstallerUrls.ReleasesPageUrl);
 
-    private static void TryShellStart(string target)
+    private static bool TryShellStart(string target)
     {
         try
         {
             Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
+            return true;
         }
         catch (Exception ex) when (
             ex is System.ComponentModel.Win32Exception or InvalidOperationException or FileNotFoundException)
         {
             // 셸 실행 실패 — 설치 흐름 자체는 계속 (버튼 재시도 가능)
+            return false;
         }
     }
 

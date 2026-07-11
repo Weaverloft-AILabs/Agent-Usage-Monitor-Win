@@ -42,4 +42,17 @@ public class GitHubReleaseClientTests
     public void Non_Json_Body_Throws_HttpRequestException()
         => Assert.Throws<HttpRequestException>(
             () => GitHubReleaseClient.PickSetupUrl("<html>proxy block page</html>"));
+
+    [Theory]
+    [InlineData("""{"tag_name":"v2.1.0"}""", "2.1.0")]
+    [InlineData("""{"tag_name":"2.1.0"}""", "2.1.0")]
+    [InlineData("""{"tag_name":"v2.0.2","name":"x"}""", "2.0.2")]
+    public void ParseTagVersion_Strips_V(string json, string expected)
+        => Assert.Equal(expected, GitHubReleaseClient.ParseTagVersion(json));
+
+    [Theory]
+    [InlineData("""{"message":"Not Found"}""")]   // tag_name 없음
+    [InlineData("<html>not json</html>")]          // 비JSON
+    public void ParseTagVersion_Missing_Or_Bad_Is_Null(string json)
+        => Assert.Null(GitHubReleaseClient.ParseTagVersion(json));
 }

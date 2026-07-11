@@ -15,6 +15,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $csproj = Join-Path $root 'src\ClaudeUsageMonitor.App\ClaudeUsageMonitor.App.csproj'
+$installerCsproj = Join-Path $root 'src\ClaudeUsageMonitor.Installer\ClaudeUsageMonitor.Installer.csproj'
 
 $content = [System.IO.File]::ReadAllText($csproj)
 if ($content -notmatch '<Version>(\d+)\.(\d+)\.(\d+)</Version>') {
@@ -36,11 +37,18 @@ if ($DryRun) { Write-Host '(dry run - no changes made)'; exit 0 }
 [System.IO.File]::WriteAllText(
     $csproj, $content.Replace("<Version>$old</Version>", "<Version>$new</Version>"))
 
+# 인스톨러 csproj도 같은 버전으로 동기화 (릴리스는 release.yml의 -p:Version이 지배하지만
+# 로컬 Debug 빌드 버전이 어긋나면 인스톨러 업데이트 감지가 오판할 수 있음)
+$installerContent = [System.IO.File]::ReadAllText($installerCsproj)
+$installerContent = [System.Text.RegularExpressions.Regex]::Replace(
+    $installerContent, '<Version>\d+\.\d+\.\d+</Version>', "<Version>$new</Version>")
+[System.IO.File]::WriteAllText($installerCsproj, $installerContent)
+
 Push-Location $root   # repo root = source 저장소 루트 (2026-07-10 저장소 분리)
 # git의 stderr 경고(LF/CRLF 등)가 Stop 정책에서 오류로 승격되지 않도록 — 실패 판정은 $LASTEXITCODE로
 $ErrorActionPreference = 'Continue'
 try {
-    git add $csproj
+    git add $csproj $installerCsproj
     git commit -m "chore: bump version to $new"
     if ($LASTEXITCODE -ne 0) { throw 'git commit failed' }
     git tag "v$new"

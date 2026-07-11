@@ -48,6 +48,40 @@ public sealed class GitHubReleaseClient : IDisposable
         return PickSetupUrl(body);
     }
 
+    /// <summary>최신 릴리스의 버전(tag_name에서 v 제거). 네트워크/파싱 실패 시 null.
+    /// 인스톨러가 실제 설치할 대상(=/releases/latest)의 버전이라, 설치/업데이트 모드 판정의 기준이 된다.</summary>
+    public async Task<string?> GetLatestVersionAsync(CancellationToken cancellationToken)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cts.CancelAfter(MetadataTimeout);
+
+        using var response = await _http.GetAsync(InstallerUrls.LatestReleaseApi, cts.Token)
+            .ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        var body = await response.Content.ReadAsStringAsync(cts.Token).ConfigureAwait(false);
+        return ParseTagVersion(body);
+    }
+
+    /// <summary>릴리스 JSON의 tag_name → 숫자 버전 ("v2.1.0" → "2.1.0"). 없으면 null.</summary>
+    public static string? ParseTagVersion(string releaseJson)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(releaseJson);
+            return doc.RootElement.TryGetProperty("tag_name", out var t) && t.GetString() is { } tag
+                ? tag.TrimStart('v', 'V')
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>릴리스 JSON에서 Setup 자산 URL 선택 — 정확한 자산명 우선, "-Setup.exe" 접미 폴백.
     /// (미래에 arm64 등 두 번째 Setup 자산이 생겨도 잘못 집지 않도록.) 비JSON이면 HttpRequestException.</summary>
     public static string? PickSetupUrl(string releaseJson)

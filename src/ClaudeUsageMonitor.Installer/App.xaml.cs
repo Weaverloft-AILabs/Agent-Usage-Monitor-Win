@@ -41,7 +41,10 @@ public partial class App : Application
             }
         }
 
-        new MainWindow(new InstallerViewModel(setupArg)).Show();
+        var viewModel = new InstallerViewModel(setupArg);
+        new MainWindow(viewModel).Show();
+        // 창을 먼저 띄우고 설치본·최신 릴리스 감지를 비동기로 — 감지 완료 시 준비 상태 UI가 확정된다.
+        _ = viewModel.DetectAsync();
     }
 
     protected override void OnExit(ExitEventArgs e)
