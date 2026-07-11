@@ -34,8 +34,12 @@ jobs:
           }
           "version=$v" >> $env:GITHUB_OUTPUT
 
-      - name: Test
+      # 별도 스텝으로 분리 — pwsh는 마지막 명령의 종료코드만 전파해 앞 스텝 실패가 가려짐
+      - name: Test (Core)
         run: dotnet test tests/ClaudeUsageMonitor.Core.Tests -c Release
+
+      - name: Test (Installer)
+        run: dotnet test tests/ClaudeUsageMonitor.Installer.Tests -c Release
 
       - name: Publish (self-contained single exe)
         run: >-
@@ -88,6 +92,16 @@ jobs:
           }
           vpk @packArgs
 
+      # 커스텀 브랜드 인스톨러 (v2.0.0+) — 릴리스 "공개 전"에 빌드해 실패 시 릴리스 자체를 중단
+      # (공개 후 빌드하면 실패 시 README가 안내하는 자산이 없는 릴리스가 라이브로 남음)
+      - name: Publish custom installer (self-contained single exe)
+        if: github.ref_type == 'tag'
+        run: |
+          dotnet publish src/ClaudeUsageMonitor.Installer -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:Version=${{ steps.ver.outputs.version }} -o artifacts/installer-app
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          # GitHub는 자산명 공백을 점으로 바꾸므로 하이픈 이름으로 복사
+          Copy-Item "artifacts/installer-app/Agent Usage Monitor Installer.exe" "artifacts/installer-app/AgentUsageMonitor-Installer.exe"
+
       - name: Upload GitHub release
         if: github.ref_type == 'tag'
         run: >-
@@ -96,3 +110,9 @@ jobs:
           --releaseName "Agent Usage Monitor ${{ steps.ver.outputs.version }}"
           --tag ${{ github.ref_name }} --targetCommitish ${{ github.sha }}
           -o artifacts/installer
+
+      - name: Attach custom installer to release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload ${{ github.ref_name }} "artifacts/installer-app/AgentUsageMonitor-Installer.exe" --repo ${{ github.repository }} --clobber
