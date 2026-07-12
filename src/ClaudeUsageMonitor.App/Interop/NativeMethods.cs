@@ -183,10 +183,10 @@ internal static class NativeMethods
 
     public delegate IntPtr WndProc(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
 
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     public static extern ushort RegisterClassEx(ref WNDCLASSEX lpwcx);
 
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     public static extern IntPtr CreateWindowEx(
         long dwExStyle, string lpClassName, string? lpWindowName, long dwStyle,
         int x, int y, int nWidth, int nHeight,
@@ -231,7 +231,7 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     public static extern bool PostMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
 
-    [DllImport("user32.dll")]
+    [DllImport("user32.dll", SetLastError = true)]
     public static extern IntPtr SetParent(IntPtr hWndChild, IntPtr hWndNewParent);
 
     [DllImport("user32.dll")]
