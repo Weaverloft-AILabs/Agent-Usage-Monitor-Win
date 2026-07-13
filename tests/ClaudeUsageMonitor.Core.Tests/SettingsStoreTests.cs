@@ -33,6 +33,19 @@ public class SettingsStoreTests : IDisposable
         Assert.True(new SettingsStore(_dir).Load().WarnNotificationEnabled);
     }
 
+    [Fact]
+    public void WarnThreshold_DefaultsTo70()
+        => Assert.Equal(70, new MonitorSettings().WarnThresholdPct);
+
+    [Fact]
+    public void WarnThreshold_MissingKey_LoadsAsDefault70()
+    {
+        // 구버전 settings.json(임계값 키 없음)은 기본 70%로 로드
+        File.WriteAllText(Path.Combine(_dir, "settings.json"), """{ "PollIntervalSeconds": 180 }""");
+
+        Assert.Equal(70, new SettingsStore(_dir).Load().WarnThresholdPct);
+    }
+
     public void Dispose()
     {
         try { Directory.Delete(_dir, recursive: true); } catch (IOException) { }

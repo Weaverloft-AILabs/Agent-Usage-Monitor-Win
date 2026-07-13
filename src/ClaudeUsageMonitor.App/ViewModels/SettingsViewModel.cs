@@ -100,7 +100,7 @@ public partial class SettingsViewModel : ObservableObject, IRecipient<UpdateAvai
         var previousEmbed = _settings.TaskbarEmbedEnabled;
 
         _settings.PollIntervalSeconds = PollIntervalSeconds; // setter가 하한(20초) 강제
-        _settings.WarnThresholdPct = Math.Clamp(WarnThresholdPct, 1, 100);
+        _settings.WarnThresholdPct = Math.Clamp(WarnThresholdPct, 10, 100);
         _settings.WarnNotificationEnabled = WarnNotificationEnabled;
         _settings.Mode = (WidgetMode)Math.Clamp(ModeIndex, 0, 2);
         _settings.TaskbarEmbedEnabled = TaskbarEmbedEnabled;

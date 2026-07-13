@@ -84,7 +84,7 @@
             <TextBlock Text="이 사용률에 도달하면 알림" Style="{StaticResource RowHint}"/>
           </StackPanel>
           <StackPanel Grid.Column="1" Orientation="Horizontal">
-            <Slider Value="{Binding WarnThresholdPct}" Minimum="50" Maximum="99"
+            <Slider Value="{Binding WarnThresholdPct}" Minimum="10" Maximum="99"
                     Width="150" TickFrequency="5" IsSnapToTickEnabled="True"
                     VerticalAlignment="Center"/>
             <TextBlock Text="{Binding WarnThresholdPct, StringFormat={}{0:0}%}" Margin="10,0,0,0"

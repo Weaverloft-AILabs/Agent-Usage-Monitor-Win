@@ -32,8 +32,8 @@ public sealed class MonitorSettings
         set => _pollIntervalSeconds = Math.Max(MinPollIntervalSeconds, value);
     }
 
-    /// <summary>5시간 사용률 경고 임계값(%).</summary>
-    public double WarnThresholdPct { get; set; } = 80;
+    /// <summary>5시간 사용률 경고 임계값(%). 설정 가능 범위 10~99, 기본 70.</summary>
+    public double WarnThresholdPct { get; set; } = 70;
 
     /// <summary>5시간 사용량 경고 알림(트레이 풍선) 사용 여부. 끄면 임계값 도달에도 알리지 않음.</summary>
     public bool WarnNotificationEnabled { get; set; } = true;

@@ -137,7 +137,7 @@ public partial class TrayViewModel : ObservableObject,
     {
         if (parameter is string raw && double.TryParse(raw, out var pct))
         {
-            _settings.WarnThresholdPct = pct;
+            _settings.WarnThresholdPct = Math.Clamp(pct, 10, 100); // 최소 10% 하한 (설정 슬라이더와 정합)
             _settingsStore.Save(_settings);
             OnPropertyChanged(nameof(WarnThresholdPct));
             IconStateChanged?.Invoke();
