@@ -44,6 +44,10 @@ public sealed class NativeWidgetHost : IDisposable
     /// <summary>더블클릭 — 대시보드 열기 (WPF 디스패처에서 발생).</summary>
     public event Action? DashboardRequested;
 
+    /// <summary>드래그로 다른 모니터의 작업표시줄 위에 놓임 — 컨트롤러가 그 모니터로 재임베드
+    /// (세로 작업표시줄이면 오버레이 폴백). 설정(TaskbarMonitorDevice)은 이 이벤트 전에 이미 저장됨.</summary>
+    public event Action? MonitorChangeRequested;
+
     public NativeWidgetHost(
         WidgetWindow widget, WidgetViewModel viewModel,
         MonitorSettings settings, SettingsStore settingsStore)
@@ -304,12 +308,28 @@ public sealed class NativeWidgetHost : IDisposable
     private void OnDoubleClicked() =>
         _widget.Dispatcher.BeginInvoke(() => DashboardRequested?.Invoke());
 
-    private void OnDragCompleted(int clientX) => _widget.Dispatcher.BeginInvoke(() =>
+    private void OnDragCompleted(int clientX, int cursorX, int cursorY) => _widget.Dispatcher.BeginInvoke(() =>
     {
         if (_native is not { IsAlive: true } native)
         {
             return;
         }
+
+        // 임베드 위젯은 부모 작업표시줄의 자식이라 드래그로 모니터를 넘지 못한다(WS_CHILD 클리핑).
+        // → 놓인 커서 위치에서 가장 가까운 작업표시줄이 지금 모니터와 다르면 그 모니터로 재임베드한다.
+        var taskbars = TaskbarLocator.GetAllTaskbars();
+        if (NearestTaskbar(taskbars, cursorX, cursorY) is { } target
+            && target.MonitorDevice != _parentDevice
+            && target.Edge is TaskbarEdge.Bottom or TaskbarEdge.Top)
+        {
+            _settings.TaskbarMonitorDevice = target.MonitorDevice;
+            _settings.TaskbarOffsetRatio = null; // 새 모니터에서는 기본 위치(트레이 왼쪽)
+            _settingsStore.Save(_settings);
+            MonitorChangeRequested?.Invoke(); // 컨트롤러가 새 모니터로 재임베드(세로면 오버레이 폴백)
+            return;
+        }
+
+        // 같은 모니터 — 현재 작업표시줄 내에서 위치 비율만 저장
         int width;
         lock (_sizeLock)
         {
@@ -325,6 +345,25 @@ public sealed class NativeWidgetHost : IDisposable
         _settingsStore.Save(_settings);
         Dock();
     });
+
+    /// <summary>화면 좌표 (x,y)에서 가장 가까운 작업표시줄(사각형까지 거리 제곱 최소). 없으면 null.</summary>
+    private static TaskbarInstance? NearestTaskbar(IReadOnlyList<TaskbarInstance> taskbars, int x, int y)
+    {
+        TaskbarInstance? best = null;
+        var bestDist = long.MaxValue;
+        foreach (var t in taskbars)
+        {
+            var dx = (long)Math.Max(0, Math.Max(t.Left - x, x - t.Right));
+            var dy = (long)Math.Max(0, Math.Max(t.Top - y, y - t.Bottom));
+            var dist = dx * dx + dy * dy;
+            if (dist < bestDist)
+            {
+                bestDist = dist;
+                best = t;
+            }
+        }
+        return best;
+    }
 
     /// <summary>저장된 모니터의 작업표시줄 우선, 없으면 주 작업표시줄 (오버레이와 동일 정책).</summary>
     private TaskbarInstance SelectTargetTaskbar(IReadOnlyList<TaskbarInstance> taskbars)

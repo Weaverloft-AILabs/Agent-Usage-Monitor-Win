@@ -55,8 +55,9 @@ public sealed class NativeWidgetWindow : IDisposable
     /// <summary>더블클릭 — 대시보드 열기. 네이티브 스레드에서 발생.</summary>
     public event Action? DoubleClicked;
 
-    /// <summary>드래그 종료(부모 클라이언트 X 좌표) — 호스트가 비율 저장·스냅. 네이티브 스레드에서 발생.</summary>
-    public event Action<int>? DragCompleted;
+    /// <summary>드래그 종료 — (부모 클라이언트 X, 놓인 커서 화면 X, 커서 화면 Y). 호스트가 비율 저장·스냅
+    /// 또는 다른 모니터 위에서 놓였으면 재임베드 판정. 네이티브 스레드에서 발생.</summary>
+    public event Action<int, int, int>? DragCompleted;
 
     public NativeWidgetWindow(IntPtr parentTaskbar)
     {
@@ -310,7 +311,10 @@ public sealed class NativeWidgetWindow : IDisposable
                     if (_dragStarted)
                     {
                         _dragStarted = false;
-                        DragCompleted?.Invoke(CurrentWindowXInParent());
+                        // 커서 화면 좌표도 함께 전달 — 임베드 자식은 드래그로 모니터를 못 넘으므로
+                        // 호스트가 "놓인 커서 위치"로 다른 모니터 위 드롭을 판정한다
+                        GetCursorPos(out var drop);
+                        DragCompleted?.Invoke(CurrentWindowXInParent(), drop.X, drop.Y);
                     }
                 }
                 return IntPtr.Zero;

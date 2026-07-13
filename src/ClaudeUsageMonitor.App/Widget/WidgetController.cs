@@ -77,6 +77,11 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
             }
         };
 
+        // 임베드 위젯을 드래그로 다른 모니터 작업표시줄 위에 놓으면 그 모니터로 재임베드 (세로면 오버레이 폴백).
+        // 설정(TaskbarMonitorDevice)은 호스트가 이미 저장했으므로 여기선 taskbar 모드 재적용만.
+        _nativeHost.MonitorChangeRequested += () =>
+            _window.Dispatcher.BeginInvoke(() => ApplyMode(WidgetMode.Taskbar), DispatcherPriority.Background);
+
         _window.SourceInitialized += (_, _) => HookWindowMessages();
 
         // 소진 예측 텍스트 등장/소멸로 위젯 폭이 변하면 트레이 침범 방지를 위해 재도킹
