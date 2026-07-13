@@ -120,3 +120,20 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload ${{ github.ref_name }} "artifacts/installer-app/AgentUsageMonitor-Installer.exe" --repo ${{ github.repository }} --clobber
+
+      # 커스텀 Installer.exe가 Setup를 임베드(오프라인 설치)하고 인앱 업데이트는 nupkg를 쓰므로
+      # standalone Setup.exe 공개 자산은 불필요 → 게시본에서 제거. (위 vpk pack이 만든 아티팩트는 임베드 소스로 이미 사용됨.)
+      - name: Remove standalone Setup.exe from the published release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $rel = gh api "/repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}" | ConvertFrom-Json
+          $asset = $rel.assets | Where-Object { $_.name -eq 'AgentUsageMonitor-win-Setup.exe' }
+          if ($asset) {
+            gh api -X DELETE "/repos/${{ github.repository }}/releases/assets/$($asset.id)"
+            Write-Host "removed release asset: AgentUsageMonitor-win-Setup.exe (id $($asset.id))"
+          }
+          else {
+            Write-Host "Setup.exe asset not present - nothing to remove"
+          }
