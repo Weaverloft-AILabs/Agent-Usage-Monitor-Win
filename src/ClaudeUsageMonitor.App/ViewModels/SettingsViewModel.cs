@@ -41,6 +41,10 @@ public partial class SettingsViewModel : ObservableObject, IRecipient<UpdateAvai
     [ObservableProperty]
     private bool _autoStart;
 
+    /// <summary>주기 체크 완료 시 컴퓨터가 유휴(마지막 입력 후 30분)면 자동 업데이트 (기본 꺼짐).</summary>
+    [ObservableProperty]
+    private bool _autoUpdateWhenIdle;
+
     [ObservableProperty]
     private string _statusText = "";
 
@@ -86,6 +90,7 @@ public partial class SettingsViewModel : ObservableObject, IRecipient<UpdateAvai
         _pollIntervalSeconds = settings.PollIntervalSeconds;
         _warnThresholdPct = settings.WarnThresholdPct;
         _warnNotificationEnabled = settings.WarnNotificationEnabled;
+        _autoUpdateWhenIdle = settings.AutoUpdateWhenIdle;
         _modeIndex = (int)settings.Mode;
         _taskbarEmbedEnabled = settings.TaskbarEmbedEnabled;
         _themeIndex = (int)settings.Theme;
@@ -102,6 +107,7 @@ public partial class SettingsViewModel : ObservableObject, IRecipient<UpdateAvai
         _settings.PollIntervalSeconds = PollIntervalSeconds; // setter가 하한(20초) 강제
         _settings.WarnThresholdPct = Math.Clamp(WarnThresholdPct, 10, 100);
         _settings.WarnNotificationEnabled = WarnNotificationEnabled;
+        _settings.AutoUpdateWhenIdle = AutoUpdateWhenIdle;
         _settings.Mode = (WidgetMode)Math.Clamp(ModeIndex, 0, 2);
         _settings.TaskbarEmbedEnabled = TaskbarEmbedEnabled;
         _settings.Theme = (ThemePreference)Math.Clamp(ThemeIndex, 0, 2);

@@ -42,6 +42,18 @@ internal static class NativeMethods
     [DllImport("shell32.dll")]
     public static extern nuint SHAppBarMessage(uint dwMessage, ref APPBARDATA pData);
 
+    // ---- Idle detection (마지막 입력 시각) ----
+    [StructLayout(LayoutKind.Sequential)]
+    public struct LASTINPUTINFO
+    {
+        public uint cbSize;
+        public uint dwTime; // 마지막 입력 tick (GetTickCount 기반)
+    }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
+
     // ---- Window styles ----
     public const int GWL_EXSTYLE = -20;
     public const long WS_EX_TOOLWINDOW = 0x00000080L;

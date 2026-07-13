@@ -189,7 +189,7 @@
               <TextBlock Text="{Binding CurrentVersionText}" Style="{StaticResource RowLabel}"
                          FontFamily="{StaticResource MonoFont}" FontWeight="Bold"/>
             </StackPanel>
-            <TextBlock Text="새 버전은 4시간마다 자동 확인되며, 발견 시 위젯 우클릭 메뉴에도 표시됩니다"
+            <TextBlock Text="새 버전은 2시간마다 자동 확인되며, 발견 시 위젯 우클릭 메뉴에도 표시됩니다"
                        Style="{StaticResource RowHint}"/>
           </StackPanel>
           <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -209,6 +209,22 @@
             </Button>
           </StackPanel>
         </Grid>
+
+        <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,2"/>
+
+        <Grid Margin="0,10">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
+            <TextBlock Text="유휴 시 자동 업데이트" Style="{StaticResource RowLabel}"/>
+            <TextBlock Text="새 버전 확인 후 컴퓨터를 30분 이상 사용하지 않는 중이면 자동으로 설치합니다 (주요 버전 업그레이드는 제외)"
+                       Style="{StaticResource RowHint}"/>
+          </StackPanel>
+          <CheckBox x:Name="AutoUpdateToggle" Grid.Column="1" IsChecked="{Binding AutoUpdateWhenIdle}"/>
+        </Grid>
+
         <TextBlock Text="{Binding UpdateStatusText}" FontSize="11" Margin="0,0,0,8"
                    Foreground="{DynamicResource PredictionBrush}">
           <TextBlock.Style>

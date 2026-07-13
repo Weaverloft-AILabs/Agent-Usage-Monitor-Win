@@ -38,6 +38,9 @@ public sealed class MonitorSettings
     /// <summary>5시간 사용량 경고 알림(트레이 풍선) 사용 여부. 끄면 임계값 도달에도 알리지 않음.</summary>
     public bool WarnNotificationEnabled { get; set; } = true;
 
+    /// <summary>주기 업데이트 체크 완료 시 컴퓨터가 유휴(마지막 입력 후 30분)이면 자동 업데이트. 기본 꺼짐.</summary>
+    public bool AutoUpdateWhenIdle { get; set; }
+
     public WidgetMode Mode { get; set; } = WidgetMode.Taskbar;
 
     /// <summary>

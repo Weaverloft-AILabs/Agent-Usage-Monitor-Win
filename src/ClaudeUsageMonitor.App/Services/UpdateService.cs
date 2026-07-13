@@ -1,5 +1,7 @@
+using ClaudeUsageMonitor.App.Interop;
 using ClaudeUsageMonitor.App.Messaging;
 using ClaudeUsageMonitor.Core;
+using ClaudeUsageMonitor.Core.Models;
 using ClaudeUsageMonitor.Core.Updates;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Hosting;
@@ -23,16 +25,22 @@ public sealed class UpdateService : BackgroundService
     /// <summary>메이저 점프 시 수동 다운로드 안내에 쓰는 릴리스 페이지 주소.</summary>
     public const string ReleasesPageUrl = RepoUrl + "/releases/latest";
     private static readonly TimeSpan InitialDelay = TimeSpan.FromMinutes(1);
-    private static readonly TimeSpan CheckInterval = TimeSpan.FromHours(4);
+    private static readonly TimeSpan CheckInterval = TimeSpan.FromHours(2);
+    /// <summary>유휴 자동 업데이트 발화 하한 — 마지막 입력 후 이 시간 이상이면 유휴로 본다.</summary>
+    private static readonly TimeSpan IdleThreshold = TimeSpan.FromMinutes(30);
 
     private readonly UpdateManager _manager = new(new GithubSource(RepoUrl, null, prerelease: false));
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly MonitorSettings _settings;
 
     /// <summary>적용 직전 기록되는 재시작 연속성 마커 (무창 구간의 결과를 재시작이 이어받음).</summary>
     public UpdatePendingMarker PendingMarker { get; }
 
-    public UpdateService(MonitorPaths paths)
-        => PendingMarker = new UpdatePendingMarker(paths.DataDirectory);
+    public UpdateService(MonitorPaths paths, MonitorSettings settings)
+    {
+        PendingMarker = new UpdatePendingMarker(paths.DataDirectory);
+        _settings = settings;
+    }
 
     /// <summary>설치판에서 실행 중인지 (포터블/개발 실행이면 업데이트 불가).</summary>
     public bool IsInstalled => _manager.IsInstalled;
@@ -82,7 +90,8 @@ public sealed class UpdateService : BackgroundService
             await Task.Delay(InitialDelay, stoppingToken).ConfigureAwait(false);
             while (!stoppingToken.IsCancellationRequested)
             {
-                await CheckAsync(stoppingToken).ConfigureAwait(false);
+                var found = await CheckAsync(stoppingToken).ConfigureAwait(false);
+                MaybeAutoApplyWhenIdle(found);
                 await Task.Delay(CheckInterval, stoppingToken).ConfigureAwait(false);
             }
         }
@@ -122,6 +131,25 @@ public sealed class UpdateService : BackgroundService
         finally
         {
             _gate.Release();
+        }
+    }
+
+    /// <summary>주기 체크 완료 시 유휴 자동 업데이트 판정. 설정 ON + 업데이트 존재 + 메이저 점프 아님 +
+    /// 유휴(마지막 입력 후 30분)이면 기존 수동 설치와 동일한 공용 진행 창 흐름을 발화한다
+    /// (App 핸들러가 TryBeginInstall→즉시 적용·재시작; UpdatePendingMarker가 재시작 연속성 처리).
+    /// 설정 OFF(기본)면 유휴 syscall조차 하지 않는다.</summary>
+    private void MaybeAutoApplyWhenIdle(bool updateFound)
+    {
+        if (!_settings.AutoUpdateWhenIdle)
+        {
+            return;
+        }
+
+        var isIdle = SystemIdle.GetIdleDuration() >= IdleThreshold;
+        if (AutoUpdateGate.ShouldAutoApply(_settings.AutoUpdateWhenIdle, updateFound, AvailableIsMajorJump, isIdle))
+        {
+            // App가 Dispatcher로 마샬해 ShowUpdateWindow 실행 — TryBeginInstall이 null이면(경합) no-op
+            WeakReferenceMessenger.Default.Send(new OpenUpdateWindowMessage());
         }
     }
 
