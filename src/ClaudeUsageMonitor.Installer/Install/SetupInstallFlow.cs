@@ -5,7 +5,8 @@ namespace ClaudeUsageMonitor.Installer.Install;
 
 /// <summary>
 /// 인스톨러 백엔드 흐름 — InstallerViewModel.InstallAsync에서 이동(옵션 A 공용화).
-/// Setup 탐색(① --setup 인자 ② 동반 파일 ③ GitHub 최신 다운로드) → SetupRunner --silent 실행.
+/// Setup 해결 순서: ① <c>--setup</c> 인자 → ② <b>임베드 추출(오프라인)</b> → ③ GitHub 최신 다운로드
+/// (임베드 없는 dev 빌드 폴백) → SetupRunner <c>--silent</c> 실행.
 /// 디스크 신호 기반 단계 전환·워치독은 SetupRunner(무변경, E2E 검증본)가 담당한다.
 /// </summary>
 public sealed class SetupInstallFlow(string? setupArgPath) : IUpdateFlow
@@ -13,17 +14,29 @@ public sealed class SetupInstallFlow(string? setupArgPath) : IUpdateFlow
     public async Task<UpdateFlowResult> RunAsync(
         IProgress<UpdateFlowProgress> progress, CancellationToken cancellationToken)
     {
-        string? downloadedSetup = null;
+        // 우리가 만든 임시 Setup(임베드 추출본 또는 다운로드본)만 finally에서 삭제한다.
+        // ①로 지정된 사용자 파일은 우리 것이 아니므로 건드리지 않는다.
+        string? ownedTempSetup = null;
         try
         {
-            var setupPath = SetupLocator.Locate(setupArgPath, AppContext.BaseDirectory, File.Exists);
+            var setupPath = SetupLocator.Locate(setupArgPath, File.Exists);   // ① 명시 인자
+
             if (setupPath is null)
             {
-                setupPath = await DownloadSetupAsync(progress, cancellationToken);
-                downloadedSetup = setupPath;
+                setupPath = EmbeddedSetup.TryExtract();                        // ② 임베드(오프라인)
+                if (setupPath is not null)
+                {
+                    ownedTempSetup = setupPath;
+                }
             }
 
-            // 로컬 Setup 동반이면 다운로드 단계는 건너뜀 — SetupRunner의 첫 보고(SecurityScan)가
+            if (setupPath is null)
+            {
+                setupPath = await DownloadSetupAsync(progress, cancellationToken);  // ③ 다운로드 폴백
+                ownedTempSetup = setupPath;
+            }
+
+            // 로컬(①)/임베드(②) Setup이면 다운로드 단계는 건너뜀 — SetupRunner의 첫 보고(SecurityScan)가
             // 단계를 1로 올리면서 다운로드 슬롯이 Done으로 마킹된다.
             var runner = new SetupRunner();
             var result = await runner.RunAsync(setupPath, new StageRelay(progress), cancellationToken);
@@ -50,11 +63,11 @@ public sealed class SetupInstallFlow(string? setupArgPath) : IUpdateFlow
         }
         finally
         {
-            if (downloadedSetup is not null)
+            if (ownedTempSetup is not null)
             {
                 try
                 {
-                    File.Delete(downloadedSetup); // 실행 중이면 잠겨서 실패 — 무시 (임시 폴더 잔존만)
+                    File.Delete(ownedTempSetup); // 실행 중이면 잠겨서 실패 — 무시 (임시 폴더 잔존만)
                 }
                 catch (IOException)
                 {

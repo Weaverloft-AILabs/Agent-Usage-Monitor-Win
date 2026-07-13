@@ -1,5 +1,3 @@
-using System.IO;
-using System.Net.Http;
 using System.Reflection;
 using ClaudeUsageMonitor.Installer.Install;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -34,26 +32,16 @@ public partial class InstallerViewModel : UpdateFlowViewModel
         FlowFactory = () => new SetupInstallFlow(setupArgPath);
     }
 
-    /// <summary>준비 상태에서 1회 호출 — 현재 설치본과 최신 릴리스를 비교해 설치/업데이트 모드를 확정.
-    /// 비교 대상은 인스톨러 자체 버전이 아니라 <b>실제 다운로드 대상(/releases/latest)</b>이라야
-    /// 라벨과 실제 설치 페이로드가 일치한다(구 인스톨러 재사용 시에도 정확).</summary>
-    public async Task DetectAsync()
+    /// <summary>준비 상태에서 1회 호출 — 현재 설치본과 <b>임베드된 Setup(= 인스톨러 자체 버전)</b>을
+    /// 비교해 설치/업데이트/최신/다운그레이드 모드를 확정한다. 임베드가 실제 설치 페이로드이므로
+    /// 대상 = 자체 버전이라야 라벨과 페이로드가 일치하고, <b>네트워크 없이도(오프라인) 정확</b>하다(Design C).
+    /// (async 시그니처는 호출부 <c>_ = DetectAsync()</c> 호환 유지 — 판정 자체는 즉시 동기.)</summary>
+    public Task DetectAsync()
     {
         try
         {
             var installed = InstallProbe.ReadInstalledVersion(SetupRunner.DefaultInstalledExePath);
-            string? latest = null;
-            try
-            {
-                using var client = new GitHubReleaseClient();
-                latest = await client.GetLatestVersionAsync(CancellationToken.None);
-            }
-            catch (Exception ex) when (ex is HttpRequestException or IOException or OperationCanceledException)
-            {
-                // 오프라인/일시 오류 — 인스톨러 자체 버전으로 폴백 비교(최선의 근사)
-            }
-
-            _plan = InstallProbe.Decide(installed, latest ?? _bakedVersion);
+            _plan = InstallProbe.Decide(installed, _bakedVersion);
             if (_plan.Mode == InstallMode.Update)
             {
                 Texts = BuildTexts("업데이트"); // 진행/완료 문구의 동사 전환
@@ -65,6 +53,8 @@ public partial class InstallerViewModel : UpdateFlowViewModel
             OnPropertyChanged(nameof(Mode));
             RaiseReadyProps();
         }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>감지된 설치 상태(신규/업데이트/최신/다운그레이드) — E2E·진단용.</summary>

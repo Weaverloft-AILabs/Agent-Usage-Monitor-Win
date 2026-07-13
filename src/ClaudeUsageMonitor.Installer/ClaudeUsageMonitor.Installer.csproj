@@ -27,4 +27,11 @@
     <ProjectReference Include="..\ClaudeUsageMonitor.UpdateUi\ClaudeUsageMonitor.UpdateUi.csproj" />
   </ItemGroup>
 
+  <!-- Design C: 오프라인 설치 지원 — 릴리스 빌드는 vpk pack이 만든 Setup.exe를 인스톨러에 임베드한다.
+       EmbeddedSetupPath는 release.yml이 전달(예: artifacts/installer/AgentUsageMonitor-win-Setup.exe).
+       로컬 dev 빌드는 미설정 → 임베드 없음 → 런타임 EmbeddedSetup.TryExtract=null → 다운로드 폴백. -->
+  <ItemGroup Condition="'$(EmbeddedSetupPath)' != '' and Exists('$(EmbeddedSetupPath)')">
+    <EmbeddedResource Include="$(EmbeddedSetupPath)" LogicalName="EmbeddedSetup.exe" Visible="false" />
+  </ItemGroup>
+
 </Project>

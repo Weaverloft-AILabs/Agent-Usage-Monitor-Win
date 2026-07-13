@@ -19,14 +19,15 @@ Claude Code CLI 사용량(5시간/주간 한도, 일·주·월 토큰/비용)을
 
 1. **[최신 릴리스 페이지](https://github.com/Weaverloft-AILabs/Agent-Usage-Monitor-Win/releases/latest)**에서
    `AgentUsageMonitor-Installer.exe`를 다운로드합니다.
-2. 실행 후 **[지금 설치]**를 누르면 다운로드 → 보안 검사 → 설치 진행 상황이 창에 표시됩니다
-   (v2.0.0부터 제공되는 설치 창 — 관리자 권한 불필요, 사용자 폴더
-   `%LOCALAPPDATA%\AgentUsageMonitor`에 설치. 백신 검사로 "보안 검사" 단계가 1분 이상
-   걸릴 수 있으니 창을 닫지 말고 기다려 주세요).
+2. 실행 후 **[지금 설치]**를 누르면 보안 검사 → 설치 진행 상황이 창에 표시됩니다
+   (관리자 권한 불필요, 사용자 폴더 `%LOCALAPPDATA%\AgentUsageMonitor`에 설치. 백신 검사로
+   "보안 검사" 단계가 1분 이상 걸릴 수 있으니 창을 닫지 말고 기다려 주세요).
 3. 설치가 끝나면 **[시작하기]** — 작업표시줄(시계 왼쪽)에 사용량 위젯이 나타납니다.
 
-> 기존 방식(`AgentUsageMonitor-win-Setup.exe` 직접 실행)도 계속 동작합니다 —
-> 무인 설치(`--silent`) 등 조직 배포는 아래 참조.
+> **`AgentUsageMonitor-Installer.exe` 하나면 됩니다.** 설치 파일을 인스톨러 안에 **내장**하고 있어
+> **네트워크가 없어도(오프라인) 설치**되며, 받은 인스톨러의 버전이 그대로 설치됩니다(설치 후 앱이
+> 자동으로 새 버전을 확인합니다). 항상 최신을 원하면 위 릴리스 페이지에서 최신 인스톨러를 내려받으세요.
+> (`AgentUsageMonitor-win-Setup.exe` 직접 실행 · 무인 설치(`--silent`) 등 조직 배포는 아래 참조.)
 
 설치 후 할 수 있는 것:
 

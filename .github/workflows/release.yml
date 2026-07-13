@@ -94,10 +94,14 @@ jobs:
 
       # 커스텀 브랜드 인스톨러 (v2.0.0+) — 릴리스 "공개 전"에 빌드해 실패 시 릴리스 자체를 중단
       # (공개 후 빌드하면 실패 시 README가 안내하는 자산이 없는 릴리스가 라이브로 남음)
-      - name: Publish custom installer (self-contained single exe)
+      - name: Publish custom installer (self-contained single exe, Setup embedded for offline install)
         if: github.ref_type == 'tag'
         run: |
-          dotnet publish src/ClaudeUsageMonitor.Installer -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:Version=${{ steps.ver.outputs.version }} -o artifacts/installer-app
+          # Design C: 위 vpk pack이 만든 Setup.exe를 인스톨러에 임베드 → 네트워크 없이도(오프라인) 설치.
+          # Setup가 없으면 Resolve-Path가 실패해 스텝이 중단됨(임베드 없는 인스톨러가 조용히 배포되는 것 방지).
+          $setup = (Resolve-Path 'artifacts/installer/AgentUsageMonitor-win-Setup.exe').Path
+          Write-Host "embedding Setup for offline install: $setup"
+          dotnet publish src/ClaudeUsageMonitor.Installer -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:Version=${{ steps.ver.outputs.version }} -p:EmbeddedSetupPath="$setup" -o artifacts/installer-app
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           # GitHub는 자산명 공백을 점으로 바꾸므로 하이픈 이름으로 복사
           Copy-Item "artifacts/installer-app/Agent Usage Monitor Installer.exe" "artifacts/installer-app/AgentUsageMonitor-Installer.exe"
