@@ -45,6 +45,9 @@ public partial class DashboardViewModel : ObservableObject,
     private RollupData _rollup = new();
     private DateTimeOffset? _fiveHourResetsAt;
 
+    // 대시보드는 실시간 자동 갱신하지 않는다 — 최신 폴링 결과만 보관했다가 Refresh(창 열림/새로고침)에서 반영
+    private RateLimitUpdatedMessage? _latestRateLimit;
+
     [ObservableProperty]
     private double _fiveHourPct;
 
@@ -129,10 +132,10 @@ public partial class DashboardViewModel : ObservableObject,
         WeakReferenceMessenger.Default.Register<RateLimitUpdatedMessage>(this);
         WeakReferenceMessenger.Default.Register<RollupUpdatedMessage>(this);
 
-        // VM이 대시보드 최초 오픈 시점에 생성되므로, 그 이전에 발행된 폴링 결과를 즉시 반영
+        // VM 생성 이전에 발행된 마지막 폴링 결과를 보관 — 최초 Refresh(창 열림)에서 게이지에 반영
         if (poller.Current is { } lastState)
         {
-            Receive(new RateLimitUpdatedMessage(lastState));
+            _latestRateLimit = new RateLimitUpdatedMessage(lastState);
         }
 
         // 테마 변경 시 차트 텍스트 페인트 재적용 (VM은 앱 수명 동안 유지 — 구독 해제 불필요)
@@ -163,24 +166,29 @@ public partial class DashboardViewModel : ObservableObject,
             ? new SKColor(0xC8, 0xC8, 0xD8)
             : new SKColor(0x4A, 0x4D, 0x5E));
 
-    public void Receive(RateLimitUpdatedMessage message)
+    // 자동 갱신 안 함 — 최신 폴링 결과만 보관, 화면 반영은 Refresh(창 열림/새로고침)에서만
+    public void Receive(RateLimitUpdatedMessage message) => _latestRateLimit = message;
+
+    /// <summary>보관된 최신 폴링 결과를 게이지·리셋·예측 문구에 반영 (Refresh에서 UI 스레드로 호출).</summary>
+    private void ApplyRateLimit()
     {
+        if (_latestRateLimit is not { } message)
+        {
+            return;
+        }
         var snapshot = message.State.Snapshot;
         if (snapshot is null)
         {
             IsStale = true;
             return;
         }
-        OnUi(() =>
-        {
-            FiveHourPct = snapshot.FiveHourPct;
-            SevenDayPct = snapshot.SevenDayPct;
-            IsStale = snapshot.IsStale;
-            _fiveHourResetsAt = snapshot.FiveHourResetsAt;
-            FiveHourResetText = snapshot.FiveHourResetsAt is { } f ? f.ToLocalTime().ToString("HH:mm") + " 리셋" : "-";
-            SevenDayResetText = snapshot.SevenDayResetsAt is { } s ? s.ToLocalTime().ToString("MM/dd HH:mm") + " 리셋" : "-";
-            ExhaustionNote = BuildExhaustionNote(DateTimeOffset.UtcNow);
-        });
+        FiveHourPct = snapshot.FiveHourPct;
+        SevenDayPct = snapshot.SevenDayPct;
+        IsStale = snapshot.IsStale;
+        _fiveHourResetsAt = snapshot.FiveHourResetsAt;
+        FiveHourResetText = snapshot.FiveHourResetsAt is { } f ? f.ToLocalTime().ToString("HH:mm") + " 리셋" : "-";
+        SevenDayResetText = snapshot.SevenDayResetsAt is { } s ? s.ToLocalTime().ToString("MM/dd HH:mm") + " 리셋" : "-";
+        ExhaustionNote = BuildExhaustionNote(DateTimeOffset.UtcNow);
     }
 
     /// <summary>리셋 전에 한도가 소진될 것으로 예측될 때만 문구 표시.</summary>
@@ -208,17 +216,19 @@ public partial class DashboardViewModel : ObservableObject,
         return $"현재 속도로 약 {text} 후 한도 소진 예상";
     }
 
-    public void Receive(RollupUpdatedMessage message)
-    {
-        _rollup = message.Rollup;
-        OnUi(RebuildChart);
-    }
+    // 자동 갱신 안 함 — 최신 롤업만 보관, 차트 반영은 Refresh(창 열림/새로고침)에서만
+    public void Receive(RollupUpdatedMessage message) => _rollup = message.Rollup;
 
-    public void SetRollup(RollupData rollup)
+    public void SetRollup(RollupData rollup) => _rollup = rollup;
+
+    /// <summary>창이 (다시) 열리거나 새로고침 버튼을 누를 때 호출 — 보관된 최신 데이터(게이지·차트·현재 프로젝트)를
+    /// 한 번에 화면에 반영한다. 대시보드는 실시간 자동 갱신하지 않고 이 시점의 스냅샷만 보여준다.</summary>
+    public void Refresh() => OnUi(() =>
     {
-        _rollup = rollup;
+        ApplyRateLimit();
+        RefreshLiveSessions();
         RebuildChart();
-    }
+    });
 
     partial void OnPeriodIndexChanged(int value) => RebuildChart();
 

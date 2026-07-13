@@ -85,7 +85,9 @@
         </Border>
         <TextBlock Text="(stale)" FontSize="10" Foreground="#F0A030" HorizontalAlignment="Right" Margin="0,4,0,0"
                    Visibility="{Binding IsStale, Converter={StaticResource BoolToVis}}"/>
-        <Button x:Name="SettingsButton" Content="설정" Margin="0,8,0,0"
+        <Button x:Name="RefreshButton" Content="새로고침" Margin="0,8,0,0"
+                Style="{StaticResource AppButton}" HorizontalAlignment="Right" MinWidth="76"/>
+        <Button x:Name="SettingsButton" Content="설정" Margin="0,6,0,0"
                 Style="{StaticResource AppButton}" HorizontalAlignment="Right" MinWidth="76"/>
         <Button x:Name="InquiryButton" Content="문의하기" Margin="0,6,0,0"
                 Style="{StaticResource AppButton}" HorizontalAlignment="Right" MinWidth="76"/>

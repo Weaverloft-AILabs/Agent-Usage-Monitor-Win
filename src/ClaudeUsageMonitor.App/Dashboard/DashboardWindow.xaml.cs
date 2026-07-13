@@ -8,7 +8,6 @@ namespace ClaudeUsageMonitor.App.Dashboard;
 public partial class DashboardWindow : Window
 {
     private readonly DashboardViewModel _viewModel;
-    private readonly DispatcherTimer _liveTimer;
     private DateTime _lastHoverKick;
 
     public event Action? SettingsRequested;
@@ -25,6 +24,13 @@ public partial class DashboardWindow : Window
         MonthlyToggle.Checked += (_, _) => _viewModel.PeriodIndex = 2;
         SettingsButton.Click += (_, _) => SettingsRequested?.Invoke();
         InquiryButton.Click += (_, _) => InquiryRequested?.Invoke();
+
+        // 새로고침 — 대시보드는 자동 갱신하지 않으므로 이 버튼(또는 창 재오픈)으로 최신 데이터를 다시 반영
+        RefreshButton.Click += (_, _) =>
+        {
+            _viewModel.Refresh();
+            NudgeChart();
+        };
 
         // Series 교체(기간 토글/롤업 갱신) 후에도 렌더가 고착될 수 있어 매번 킥 — 없으면 토글이 무반응
         _viewModel.PropertyChanged += (_, args) =>
@@ -46,23 +52,13 @@ public partial class DashboardWindow : Window
             }
         };
 
-        _liveTimer = new DispatcherTimer(DispatcherPriority.Background)
-        {
-            Interval = TimeSpan.FromSeconds(5),
-        };
-        _liveTimer.Tick += (_, _) => _viewModel.RefreshLiveSessions();
-
+        // 대시보드는 실시간 자동 갱신하지 않음 — 창이 (다시) 열릴 때만 최신 데이터 스냅샷을 반영
         IsVisibleChanged += (_, _) =>
         {
             if (IsVisible)
             {
-                _viewModel.RefreshLiveSessions();
-                _liveTimer.Start();
+                _viewModel.Refresh();
                 NudgeChart();
-            }
-            else
-            {
-                _liveTimer.Stop();
             }
         };
         ContentRendered += (_, _) => NudgeChart();
