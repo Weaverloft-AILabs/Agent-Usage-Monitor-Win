@@ -18,9 +18,10 @@ namespace ClaudeUsageMonitor.App.ViewModels;
 
 public sealed record LiveSessionItem(string ProjectName, string FullPath, string Status);
 
-/// <summary>기간 내 모델별 비용 분해 행. Dot 색은 일간 차트의 모델 색과 동일 매핑.</summary>
+/// <summary>기간 내 모델별 비용 분해 행. Dot 색은 일간 차트의 모델 색과 동일 매핑.
+/// Share(0~1)는 100% 비용 공유 바의 세그먼트 폭에 쓰인다.</summary>
 public sealed record ModelCostItem(
-    string Model, string TokensText, string CostText, string ShareText, System.Windows.Media.Brush Dot);
+    string Model, string TokensText, string CostText, string ShareText, double Share, System.Windows.Media.Brush Dot);
 
 public partial class DashboardViewModel : ObservableObject,
     IRecipient<RateLimitUpdatedMessage>, IRecipient<RollupUpdatedMessage>
@@ -35,8 +36,6 @@ public partial class DashboardViewModel : ObservableObject,
         new(0xE0, 0x50, 0x3C),
         new(0x46, 0xC8, 0xC8),
     ];
-
-    private static readonly SKColor CostColor = new(0x7B, 0xD8, 0x8F);
 
     private readonly LiveSessionService _sessions;
     private readonly PricingService _pricing;
@@ -63,6 +62,10 @@ public partial class DashboardViewModel : ObservableObject,
     [ObservableProperty]
     private bool _isStale = true;
 
+    /// <summary>5시간 경고 임계값(%) — 히어로 게이지의 임계값 틱 위치.</summary>
+    [ObservableProperty]
+    private double _warnThresholdPct;
+
     [ObservableProperty]
     private string _planBadge = "";
 
@@ -83,6 +86,16 @@ public partial class DashboardViewModel : ObservableObject,
 
     [ObservableProperty]
     private string _periodTotalCostText = "-";
+
+    [ObservableProperty]
+    private string _periodTokensAvgText = "";
+
+    [ObservableProperty]
+    private string _periodCostAvgText = "";
+
+    /// <summary>비용 스파크라인용 기간별 USD 값 — 코드비하인드가 Polyline으로 렌더(별도 차트 인스턴스 없이).</summary>
+    [ObservableProperty]
+    private double[] _costPoints = [];
 
     [ObservableProperty]
     private string _coverageNote = "";
@@ -225,6 +238,7 @@ public partial class DashboardViewModel : ObservableObject,
     /// 한 번에 화면에 반영한다. 대시보드는 실시간 자동 갱신하지 않고 이 시점의 스냅샷만 보여준다.</summary>
     public void Refresh() => OnUi(() =>
     {
+        WarnThresholdPct = _settings.WarnThresholdPct;
         ApplyRateLimit();
         RefreshLiveSessions();
         RebuildChart();
@@ -301,11 +315,9 @@ public partial class DashboardViewModel : ObservableObject,
         }
 
         var costs = range.Select(DayCost).ToArray();
-        seriesList.Add(MakeCostLine(costs));
-
         ApplyChart(seriesList, labels,
             range.Sum(d => d.TotalTokens.Total),
-            costs.Sum());
+            costs.Sum(), costs, "/일");
 
         var merged = new Dictionary<string, TokenCounts>();
         foreach (var day in range)
@@ -326,13 +338,10 @@ public partial class DashboardViewModel : ObservableObject,
         var costs = weeks.Select(w => (double)CostOf(w.ByModel)).ToArray();
 
         ApplyChart(
-            [
-                MakeTokenColumns(tokens, Palette[0]),
-                MakeCostLine(costs),
-            ],
+            [MakeTokenColumns(tokens, Palette[0])],
             labels,
             weeks.Sum(w => w.Tokens.Total),
-            costs.Sum());
+            costs.Sum(), costs, "/주");
 
         UpdateModelBreakdown(MergeByModel(weeks.Select(w => w.ByModel)));
     }
@@ -345,13 +354,10 @@ public partial class DashboardViewModel : ObservableObject,
         var costs = months.Select(m => (double)CostOf(m.ByModel)).ToArray();
 
         ApplyChart(
-            [
-                MakeTokenColumns(tokens, Palette[1]),
-                MakeCostLine(costs),
-            ],
+            [MakeTokenColumns(tokens, Palette[1])],
             labels,
             months.Sum(m => m.Tokens.Total),
-            costs.Sum());
+            costs.Sum(), costs, "/월");
 
         UpdateModelBreakdown(MergeByModel(months.Select(m => m.ByModel)));
     }
@@ -386,11 +392,13 @@ public partial class DashboardViewModel : ObservableObject,
             var dot = new System.Windows.Media.SolidColorBrush(
                 System.Windows.Media.Color.FromRgb(color.Red, color.Green, color.Blue));
             dot.Freeze();
+            var share = totalCost > 0 ? (double)(cost / totalCost) : 0d;
             ModelBreakdown.Add(new ModelCostItem(
                 ShortModelName(model),
                 FormatTokens(tokens.Total),
                 "$" + ((double)cost).ToString("0.00", CultureInfo.InvariantCulture),
-                totalCost > 0 ? ((double)(cost / totalCost)).ToString("P0", CultureInfo.InvariantCulture) : "",
+                totalCost > 0 ? share.ToString("P0", CultureInfo.InvariantCulture) : "",
+                share,
                 dot));
         }
         HasBreakdown = ModelBreakdown.Count > 0;
@@ -412,49 +420,21 @@ public partial class DashboardViewModel : ObservableObject,
         YToolTipLabelFormatter = point => FormatTokens((long)point.Coordinate.PrimaryValue),
     };
 
-    private void ApplyChart(IReadOnlyList<ISeries> series, string[] labels, long totalTokens, double totalCost)
+    // 이중 Y축 제거: 토큰만 단일 좌축 스택. 비용은 별도 스파크라인(CostPoints) + KPI 평균 + 모델 공유 바로 분리.
+    private void ApplyChart(IReadOnlyList<ISeries> series, string[] labels, long totalTokens, double totalCost,
+        double[] costs, string avgUnit)
     {
         var labelPaint = ChartTextPaint();
         Series = series.ToArray();
         XAxes = [new Axis { Labels = labels, LabelsRotation = 0, TextSize = 11, LabelsPaint = labelPaint }];
-        YAxes =
-        [
-            new Axis { Name = "Tokens", TextSize = 11, MinLimit = 0, LabelsPaint = labelPaint, NamePaint = labelPaint },
-            new Axis
-            {
-                Name = "USD",
-                Position = LiveChartsCore.Measure.AxisPosition.End,
-                TextSize = 11,
-                MinLimit = 0,
-                LabelsPaint = labelPaint,
-                NamePaint = labelPaint,
-            },
-        ];
+        YAxes = [new Axis { TextSize = 11, MinLimit = 0, LabelsPaint = labelPaint, Labeler = v => FormatTokens((long)v) }];
+        CostPoints = costs;
         PeriodTotalTokensText = FormatTokens(totalTokens);
         PeriodTotalCostText = "$" + totalCost.ToString("0.00", CultureInfo.InvariantCulture);
+        var n = Math.Max(1, labels.Length);
+        PeriodTokensAvgText = "≈ " + FormatTokens(totalTokens / n) + " " + avgUnit;
+        PeriodCostAvgText = "≈ $" + (totalCost / n).ToString("0.00", CultureInfo.InvariantCulture) + " " + avgUnit;
     }
-
-    private static LineSeries<double> MakeCostLine(double[] costs) => new()
-    {
-        Name = "비용($)",
-        Values = costs,
-        ScalesYAt = 1,
-        Stroke = new SolidColorPaint(CostColor) { StrokeThickness = 2.5f },
-        Fill = null,
-        GeometryStroke = new SolidColorPaint(CostColor) { StrokeThickness = 2f },
-        GeometryFill = new SolidColorPaint(new SKColor(0x1E, 0x1F, 0x29)),
-        GeometrySize = 7,
-        // USD 수치 라벨 — $1 미만은 생략
-        DataLabelsPaint = new SolidColorPaint(CostColor),
-        DataLabelsSize = 10,
-        DataLabelsPosition = LiveChartsCore.Measure.DataLabelsPosition.Top,
-        DataLabelsFormatter = point =>
-            point.Coordinate.PrimaryValue >= 1
-                ? "$" + point.Coordinate.PrimaryValue.ToString("0", CultureInfo.InvariantCulture)
-                : "",
-        YToolTipLabelFormatter = point =>
-            "$" + point.Coordinate.PrimaryValue.ToString("0.00", CultureInfo.InvariantCulture),
-    };
 
     private double DayCost(DailyRollup day)
     {
