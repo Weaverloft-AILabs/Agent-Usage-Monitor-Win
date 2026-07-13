@@ -24,7 +24,13 @@ public sealed class ThresholdArm
             return false;
         }
 
-        if (resetsAt is null)
+        // usage API는 매 응답마다 resets_at의 초 미만 성분을 다르게 반환한다(실측 2026-07-13:
+        // 10:59:59.542213 → .918093). 원값으로 비교하면 폴링마다 윈도우가 "바뀐 것"으로 오인돼
+        // 임계값 초과 상태에서 알림이 폴링 주기마다 반복 발사된다. 윈도우 경계는 시간 단위라
+        // 분으로 정규화하면 같은 윈도우는 동일 키, 다른 윈도우(5시간 간격)는 여전히 구분된다.
+        var window = NormalizeWindow(resetsAt);
+
+        if (window is null)
         {
             if (_firedForNullReset)
             {
@@ -34,13 +40,27 @@ public sealed class ThresholdArm
             return true;
         }
 
-        if (_firedForReset == resetsAt)
+        if (_firedForReset == window)
         {
             return false;
         }
 
-        _firedForReset = resetsAt;
+        _firedForReset = window;
         _firedForNullReset = false;
         return true;
+    }
+
+    /// <summary>resets_at를 가장 가까운 분으로 정규화(서버가 흔드는 초 미만 지터 제거). null은 그대로.</summary>
+    private static DateTimeOffset? NormalizeWindow(DateTimeOffset? resetsAt)
+    {
+        if (resetsAt is not { } v)
+        {
+            return null;
+        }
+
+        const long minute = TimeSpan.TicksPerMinute;
+        long rem = v.UtcTicks % minute;
+        long rounded = v.UtcTicks - rem + (rem >= minute / 2 ? minute : 0);
+        return new DateTimeOffset(rounded, TimeSpan.Zero);
     }
 }

@@ -57,4 +57,32 @@ public class ThresholdArmTests
 
         Assert.True(arm.ShouldFire(80, 80, Reset1));
     }
+
+    [Fact]
+    public void DoesNotRefire_WhenResetsAtSubSecondJitters_SameWindow()
+    {
+        // 실측(2026-07-13): usage API는 매 응답마다 resets_at의 초 미만 소수부를 다르게 반환한다
+        // (예: 10:59:59.542213 → .918093 → .123456). 같은 5시간 윈도우이므로 재발사하면 안 된다.
+        // 이 지터를 정규화하지 않으면 임계값 초과 상태에서 폴링(180초)마다 경고가 반복 발사된다.
+        var arm = new ThresholdArm();
+        var a = DateTimeOffset.Parse("2026-07-13T10:59:59.542213+00:00");
+        var b = DateTimeOffset.Parse("2026-07-13T10:59:59.918093+00:00");
+        var c = DateTimeOffset.Parse("2026-07-13T10:59:59.123456+00:00");
+
+        Assert.True(arm.ShouldFire(85, 80, a));   // 최초 1회 발사
+        Assert.False(arm.ShouldFire(85, 80, b));  // 소수부만 다름 — 재발사 금지
+        Assert.False(arm.ShouldFire(90, 80, c));  // 폴링 반복에도 금지
+    }
+
+    [Fact]
+    public void Refires_WhenResetWindowChanges_DespiteJitter()
+    {
+        // 정규화가 서로 다른 윈도우(5시간 간격)까지 뭉개지 않는지 보증.
+        var arm = new ThresholdArm();
+        var window1 = DateTimeOffset.Parse("2026-07-13T10:59:59.542213+00:00");
+        var window2 = DateTimeOffset.Parse("2026-07-13T15:59:59.918093+00:00");
+
+        Assert.True(arm.ShouldFire(85, 80, window1));
+        Assert.True(arm.ShouldFire(85, 80, window2)); // 다른 윈도우 — 재무장 발사
+    }
 }
