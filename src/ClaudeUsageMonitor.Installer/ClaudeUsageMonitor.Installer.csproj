@@ -13,7 +13,7 @@
     <Authors>WeaverLoft inc. AILabs</Authors>
     <Copyright>© WeaverLoft inc. AILabs</Copyright>
     <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
-    <Version>2.7.2</Version>
+    <Version>2.7.3</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>..\ClaudeUsageMonitor.App\Assets\icon.ico</ApplicationIcon>
   </PropertyGroup>
