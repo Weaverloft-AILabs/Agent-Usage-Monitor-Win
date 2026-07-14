@@ -98,7 +98,7 @@ internal static class NativeWidgetRenderer
 
         if (s.UpdateAvailable)
         {
-            contentWidth += S(2) + Text(g, UpdateGlyph, 13f, scale, FontStyle.Bold).Width + S(4);
+            contentWidth += S(3) + S(UpdateBadge) + S(2);
         }
 
         // Border 1px + Padding(2,1)
@@ -109,8 +109,9 @@ internal static class NativeWidgetRenderer
 
     private const string CliMissingText = "⚠ Claude Code 미감지";
     private const string LoadingText = "로딩중…";
-    private const string UpdateGlyph = "⬆";
+    private const float UpdateBadge = 20f; // 업데이트 아이콘 배지 한 변(DIP)
     private static readonly Color CliMissingColor = Color.FromArgb(0xFF, 0xF0, 0xA0, 0x30);
+    private static readonly Color UpdateBadgeColor = Color.FromArgb(0xFF, 0xD9, 0x77, 0x57); // 코랄 accent
 
     private static void Draw(Graphics g, NativeWidgetSnapshot s, double scale, Size size)
     {
@@ -134,12 +135,32 @@ internal static class NativeWidgetRenderer
 
         if (s.UpdateAvailable)
         {
-            using var font = new Font("Segoe UI Symbol", (float)(13 * scale), FontStyle.Bold, GraphicsUnit.Pixel);
-            using var brush = new SolidBrush(s.Palette.Prediction);
-            var text = g.MeasureString(UpdateGlyph, font);
-            g.DrawString(UpdateGlyph, font, brush,
-                contentRight + S(2), (size.Height - text.Height) / 2f);
+            var badge = S(UpdateBadge);
+            var rect = new RectangleF(contentRight + S(3), (size.Height - badge) / 2f, badge, badge);
+            using (var path = RoundedRect(rect, S(5)))
+            using (var fill = new SolidBrush(UpdateBadgeColor))
+            {
+                g.FillPath(fill, path);
+            }
+            DrawDownloadArrow(g, rect);
         }
+    }
+
+    /// <summary>코랄 배지 안에 흰색 다운로드 아이콘(아래 화살표 + 받침선)을 그린다.</summary>
+    private static void DrawDownloadArrow(Graphics g, RectangleF b)
+    {
+        float X(float f) => b.X + b.Width * f;
+        float Y(float f) => b.Y + b.Height * f;
+        using var pen = new Pen(Color.White, Math.Max(1.2f, b.Width * 0.09f))
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round,
+            LineJoin = LineJoin.Round,
+        };
+        g.DrawLine(pen, X(0.5f), Y(0.26f), X(0.5f), Y(0.60f));   // 화살대
+        g.DrawLine(pen, X(0.5f), Y(0.60f), X(0.32f), Y(0.44f));  // 화살촉 좌
+        g.DrawLine(pen, X(0.5f), Y(0.60f), X(0.68f), Y(0.44f));  // 화살촉 우
+        g.DrawLine(pen, X(0.28f), Y(0.74f), X(0.72f), Y(0.74f)); // 받침선
     }
 
     /// <summary>본문(게이지 2행 또는 CLI 미감지 경고)을 그리고 오른쪽 끝 X를 반환.</summary>
