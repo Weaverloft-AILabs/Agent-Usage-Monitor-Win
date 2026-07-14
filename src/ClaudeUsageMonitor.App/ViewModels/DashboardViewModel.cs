@@ -98,6 +98,10 @@ public partial class DashboardViewModel : ObservableObject,
     [ObservableProperty]
     private string[] _costLabels = [];
 
+    /// <summary>총계·모델분해의 현재 기간 라벨(오늘/이번 주/이번 달).</summary>
+    [ObservableProperty]
+    private string _periodScopeText = "오늘";
+
     [ObservableProperty]
     private string _coverageNote = "";
 
@@ -266,6 +270,7 @@ public partial class DashboardViewModel : ObservableObject,
 
     private void RebuildChart()
     {
+        PeriodScopeText = PeriodIndex switch { 1 => "이번 주", 2 => "이번 달", _ => "오늘" };
         BuildTrendChart();                       // 차트 = 기간 추세(모델 스택) + 비용 스파크라인
         var current = CurrentPeriodByModel();    // 총계·모델분해 = 현재 기간(당일/이번주 일~토/이번달)
         ApplyPeriodTotals(current);
@@ -340,6 +345,21 @@ public partial class DashboardViewModel : ObservableObject,
     {
         var models = byModelPerBucket.SelectMany(b => b.Keys).Distinct().OrderBy(m => m).ToList();
         _chartModelOrder = models; // 모델 분해가 같은 순서로 색을 매기도록 보관
+        // 세그먼트 값 라벨 하한 = 가장 높은 막대 합의 4% — 너무 작아 안 보이는 세그먼트에 라벨만 떠 있는 것 방지
+        double maxTotal = 0;
+        foreach (var b in byModelPerBucket)
+        {
+            double sum = 0;
+            foreach (var t in b.Values)
+            {
+                sum += t.Total;
+            }
+            if (sum > maxTotal)
+            {
+                maxTotal = sum;
+            }
+        }
+        var labelMin = Math.Max(1_000_000d, maxTotal * 0.04);
         var series = new List<ISeries>();
         for (var i = 0; i < models.Count; i++)
         {
@@ -358,7 +378,7 @@ public partial class DashboardViewModel : ObservableObject,
                 DataLabelsSize = 10,
                 DataLabelsPosition = LiveChartsCore.Measure.DataLabelsPosition.Middle,
                 DataLabelsFormatter = point =>
-                    point.Coordinate.PrimaryValue >= 1_000_000
+                    point.Coordinate.PrimaryValue >= labelMin
                         ? FormatTokens((long)point.Coordinate.PrimaryValue)
                         : "",
                 YToolTipLabelFormatter = point => FormatTokens((long)point.Coordinate.PrimaryValue),

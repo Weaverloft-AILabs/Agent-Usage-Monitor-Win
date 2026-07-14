@@ -325,7 +325,7 @@
       <Border Style="{StaticResource ChartCard}"
               Visibility="{Binding HasBreakdown, Converter={StaticResource BoolToVis}}">
         <StackPanel>
-          <TextBlock Text="모델별 비용 · 선택 기간" Style="{StaticResource CardTitle}" Margin="0,0,0,8"/>
+          <TextBlock Text="{Binding PeriodScopeText, StringFormat=모델별 비용 · {0}}" Style="{StaticResource CardTitle}" Margin="0,0,0,8"/>
           <Grid x:Name="ShareBarHost" Height="16" Margin="0,0,0,12"/>
           <ItemsControl ItemsSource="{Binding ModelBreakdown}">
             <ItemsControl.ItemTemplate>
