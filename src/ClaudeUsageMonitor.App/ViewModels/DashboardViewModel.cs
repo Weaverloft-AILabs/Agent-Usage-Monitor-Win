@@ -298,7 +298,9 @@ public partial class DashboardViewModel : ObservableObject,
     {
         var today = DateOnly.FromDateTime(DateTime.Now);
         var range = _rollup.Range(today.AddDays(-13), today);
-        var labels = range.Select(d => d.Date.ToString("MM/dd")).ToArray();
+        // InvariantCulture: 커스텀 날짜 포맷의 '/'는 문화권 날짜 구분자 자리표시자 → 현재 문화권에선 '-'로 렌더됨.
+        // 리터럴 슬래시를 원하므로 InvariantCulture(구분자='/')로 강제.
+        var labels = range.Select(d => d.Date.ToString("MM/dd", CultureInfo.InvariantCulture)).ToArray();
         var byModel = range.Select(d => d.ByModel.ToDictionary(kv => kv.Key, kv => kv.Value.Tokens)).ToList();
         var costs = range.Select(DayCost).ToArray();
         BuildStackedChart(labels, byModel, costs);
@@ -326,7 +328,8 @@ public partial class DashboardViewModel : ObservableObject,
             })
             .ToList();
         var labels = weeks
-            .Select(x => x.Sunday.ToString("MM/dd") + " - " + x.Sunday.AddDays(6).ToString("MM/dd"))
+            .Select(x => x.Sunday.ToString("MM/dd", CultureInfo.InvariantCulture)
+                + " - " + x.Sunday.AddDays(6).ToString("MM/dd", CultureInfo.InvariantCulture))
             .ToArray();
         var byModel = weeks.Select(x => x.ByModel).ToList();
         var costs = weeks.Select(x => (double)CostOf(x.ByModel)).ToArray();
