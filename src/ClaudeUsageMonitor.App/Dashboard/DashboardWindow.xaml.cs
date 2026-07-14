@@ -386,6 +386,7 @@ public partial class DashboardWindow : Window
         }
         // 커스텀 크롬 최대화 시 작업표시줄을 덮지 않도록 MINMAXINFO 보정 훅
         (PresentationSource.FromVisual(this) as HwndSource)?.AddHook(WndProc);
+        WindowEffects.EnableRoundedCorners(this); // Win11 모서리 라운딩
     }
 
     /// <summary>WM_GETMINMAXINFO 보정 — 최대화 크기를 현재 모니터 작업영역으로 제한(작업표시줄 가림 방지).</summary>

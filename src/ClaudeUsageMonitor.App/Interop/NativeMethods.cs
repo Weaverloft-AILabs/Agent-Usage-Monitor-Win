@@ -134,6 +134,14 @@ internal static class NativeMethods
     [DllImport("Shcore.dll")]
     public static extern int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
 
+    // ---- Win11 창 모서리 라운딩 (DWM) ----
+    public const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+    public const int DWMWCP_ROUND = 2;       // 표준 라운드(~8px)
+    public const int DWMWCP_ROUNDSMALL = 3;  // 작은 라운드(~4px)
+
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+
     // 최대화 시 작업표시줄 가림 방지 (WM_GETMINMAXINFO 보정)
     public const int WM_GETMINMAXINFO = 0x0024;
 
