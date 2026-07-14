@@ -37,4 +37,7 @@
   </LinearGradientBrush>
   <SolidColorBrush x:Key="ChartCardBrush" Color="#FFFFFF"/>
   <SolidColorBrush x:Key="ChartCardBorderBrush" Color="#E0E3EE"/>
+  <!-- 얇은 테마 스크롤바 thumb -->
+  <SolidColorBrush x:Key="ScrollThumbBrush" Color="#C5C9DA"/>
+  <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#AAB0C6"/>
 </ResourceDictionary>
