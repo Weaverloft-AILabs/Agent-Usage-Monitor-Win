@@ -10,6 +10,7 @@ public partial class InquiryWindow : Window
     {
         InitializeComponent();
         DataContext = viewModel;
+        TitleCloseButton.Click += (_, _) => Close(); // OnClosing이 Cancel+Hide (상태 보존)
     }
 
     protected override void OnClosing(CancelEventArgs e)
