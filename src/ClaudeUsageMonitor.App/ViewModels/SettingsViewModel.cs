@@ -98,6 +98,9 @@ public partial class SettingsViewModel : ObservableObject, IRecipient<UpdateAvai
         _autoStart = AutoStartManager.IsEnabled();
     }
 
+    /// <summary>저장이 성공적으로 끝났을 때 발생 — 창이 구독해 닫는다(자동 시작 실패 등 조기 반환 시엔 미발생).</summary>
+    public event Action? SaveCompleted;
+
     [RelayCommand]
     private void Save()
     {
@@ -137,6 +140,7 @@ public partial class SettingsViewModel : ObservableObject, IRecipient<UpdateAvai
         }
 
         StatusText = "저장되었습니다";
+        SaveCompleted?.Invoke(); // 저장 성공 → 창 닫기(구독자)
     }
 
     public void Receive(UpdateAvailableMessage message)

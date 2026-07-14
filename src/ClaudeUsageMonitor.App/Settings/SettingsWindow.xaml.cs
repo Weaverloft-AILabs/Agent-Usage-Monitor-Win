@@ -14,6 +14,7 @@ public partial class SettingsWindow : Window
         InitializeComponent();
         DataContext = viewModel;
         TitleCloseButton.Click += (_, _) => Close(); // OnClosing이 Cancel+Hide (상태 보존)
+        viewModel.SaveCompleted += () => Close();     // 저장 성공 시 창 닫기(hide-on-close)
         SourceInitialized += (_, _) => WindowEffects.EnableRoundedCorners(this); // Win11 모서리 라운딩
     }
 
