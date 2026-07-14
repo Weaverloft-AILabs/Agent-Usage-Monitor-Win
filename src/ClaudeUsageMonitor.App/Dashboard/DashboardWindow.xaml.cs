@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
@@ -46,6 +47,16 @@ public partial class DashboardWindow : Window
         MonthlyToggle.Checked += (_, _) => _viewModel.PeriodIndex = 2;
         SettingsButton.Click += (_, _) => SettingsRequested?.Invoke();
         InquiryButton.Click += (_, _) => InquiryRequested?.Invoke();
+
+        // 커스텀 창 버튼 — 닫기는 Close()→OnClosing이 Cancel+Hide(상태 보존)
+        MinButton.Click += (_, _) => WindowState = WindowState.Minimized;
+        MaxButton.Click += (_, _) =>
+            WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+        CloseButton.Click += (_, _) => Close();
+        StateChanged += (_, _) => MaxIcon.Data = Geometry.Parse(
+            WindowState == WindowState.Maximized
+                ? "M2,4 L8,4 L8,10 L2,10 Z M4,4 L4,2 L10,2 L10,8 L8,8"  // 복원(겹친 사각형)
+                : "M2,2 L10,2 L10,10 L2,10 Z");                          // 최대화(단일 사각형)
 
         // 새로고침 — 대시보드는 자동 갱신하지 않으므로 이 버튼(또는 창 재오픈)으로 최신 데이터를 다시 반영
         RefreshButton.Click += (_, _) =>
@@ -373,6 +384,31 @@ public partial class DashboardWindow : Window
             _initialSized = true;   // hide-on-close라 인스턴스 유지 → 최초 1회만(사용자 리사이즈 보존)
             ApplyInitialSize();
         }
+        // 커스텀 크롬 최대화 시 작업표시줄을 덮지 않도록 MINMAXINFO 보정 훅
+        if (PresentationSource.FromVisual(this) is HwndSource src)
+        {
+            src.AddHook(WndProc);
+        }
+    }
+
+    /// <summary>WM_GETMINMAXINFO 보정 — 최대화 크기를 현재 모니터 작업영역으로 제한(작업표시줄 가림 방지).</summary>
+    private nint WndProc(nint hwnd, int msg, nint wParam, nint lParam, ref bool handled)
+    {
+        if (msg == NativeMethods.WM_GETMINMAXINFO)
+        {
+            var hMon = NativeMethods.MonitorFromWindow(hwnd, NativeMethods.MONITOR_DEFAULTTONEAREST);
+            var mi = new NativeMethods.MONITORINFOEX { cbSize = (uint)Marshal.SizeOf<NativeMethods.MONITORINFOEX>() };
+            if (hMon != IntPtr.Zero && NativeMethods.GetMonitorInfo(hMon, ref mi))
+            {
+                var mmi = Marshal.PtrToStructure<NativeMethods.MINMAXINFO>(lParam);
+                mmi.ptMaxPosition.X = mi.rcWork.Left - mi.rcMonitor.Left;
+                mmi.ptMaxPosition.Y = mi.rcWork.Top - mi.rcMonitor.Top;
+                mmi.ptMaxSize.X = mi.rcWork.Right - mi.rcWork.Left;
+                mmi.ptMaxSize.Y = mi.rcWork.Bottom - mi.rcWork.Top;
+                Marshal.StructureToPtr(mmi, lParam, true);
+            }
+        }
+        return IntPtr.Zero;
     }
 
     /// <summary>현재(커서) 모니터 작업영역의 절반 크기로 열되, 최소 하한 미만이면 하한. 해당 모니터 중앙 배치.</summary>
