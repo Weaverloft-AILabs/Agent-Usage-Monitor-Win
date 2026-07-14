@@ -385,10 +385,7 @@ public partial class DashboardWindow : Window
             ApplyInitialSize();
         }
         // 커스텀 크롬 최대화 시 작업표시줄을 덮지 않도록 MINMAXINFO 보정 훅
-        if (PresentationSource.FromVisual(this) is HwndSource src)
-        {
-            src.AddHook(WndProc);
-        }
+        (PresentationSource.FromVisual(this) as HwndSource)?.AddHook(WndProc);
     }
 
     /// <summary>WM_GETMINMAXINFO 보정 — 최대화 크기를 현재 모니터 작업영역으로 제한(작업표시줄 가림 방지).</summary>
@@ -405,7 +402,11 @@ public partial class DashboardWindow : Window
                 mmi.ptMaxPosition.Y = mi.rcWork.Top - mi.rcMonitor.Top;
                 mmi.ptMaxSize.X = mi.rcWork.Right - mi.rcWork.Left;
                 mmi.ptMaxSize.Y = mi.rcWork.Bottom - mi.rcWork.Top;
+                mmi.ptMaxTrackSize.X = mmi.ptMaxSize.X;
+                mmi.ptMaxTrackSize.Y = mmi.ptMaxSize.Y;
                 Marshal.StructureToPtr(mmi, lParam, true);
+                // handled=true 필수 — 안 하면 DefWindowProc가 기본값(모니터 전체)으로 덮어써 작업표시줄을 가림
+                handled = true;
             }
         }
         return IntPtr.Zero;
