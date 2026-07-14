@@ -271,24 +271,16 @@
         </Border>
         <Border Grid.Column="2" Style="{StaticResource StatTile}">
           <StackPanel>
-            <StackPanel Orientation="Horizontal">
-              <TextBlock Text="총 토큰" FontSize="10.5" Opacity="0.5" VerticalAlignment="Center"/>
-              <TextBlock Text="{Binding PeriodTokensAvgText}" Style="{StaticResource MutedLabel}"
-                         Margin="8,0,0,0" VerticalAlignment="Center"/>
-            </StackPanel>
+            <TextBlock Text="총 토큰" FontSize="10.5" Opacity="0.55"/>
             <TextBlock Text="{Binding PeriodTotalTokensText}" FontSize="18" FontWeight="Bold"
-                       FontFamily="{StaticResource MonoFont}" Margin="0,1,0,0"/>
+                       FontFamily="{StaticResource MonoFont}" Margin="0,2,0,0"/>
           </StackPanel>
         </Border>
         <Border Grid.Column="3" Style="{StaticResource StatTile}">
           <StackPanel>
-            <StackPanel Orientation="Horizontal">
-              <TextBlock Text="총 비용" FontSize="10.5" Opacity="0.5" VerticalAlignment="Center"/>
-              <TextBlock Text="{Binding PeriodCostAvgText}" Style="{StaticResource MutedLabel}"
-                         Margin="8,0,0,0" VerticalAlignment="Center"/>
-            </StackPanel>
+            <TextBlock Text="총 비용" FontSize="10.5" Opacity="0.55"/>
             <TextBlock Text="{Binding PeriodTotalCostText}" FontSize="18" FontWeight="Bold"
-                       Foreground="{DynamicResource SuccessTextBrush}" FontFamily="{StaticResource MonoFont}" Margin="0,1,0,0"/>
+                       Foreground="{DynamicResource SuccessTextBrush}" FontFamily="{StaticResource MonoFont}" Margin="0,2,0,0"/>
           </StackPanel>
         </Border>
       </Grid>
@@ -297,16 +289,19 @@
       <Border Style="{StaticResource ChartCard}">
         <StackPanel>
           <TextBlock Text="토큰 사용량 · 모델별 스택" Style="{StaticResource CardTitle}" Margin="0,0,0,4"/>
-          <lvc:CartesianChart x:Name="UsageChart" Height="248"
-                              Background="Transparent"
-                              Series="{Binding Series}"
-                              XAxes="{Binding XAxes}"
-                              YAxes="{Binding YAxes}"
-                              LegendTextPaint="{Binding LegendTextPaint}"
-                              TooltipTextPaint="{Binding TooltipTextPaint}"
-                              TooltipBackgroundPaint="{Binding TooltipBackgroundPaint}"
-                              TooltipPosition="Top"
-                              LegendPosition="Top"/>
+          <!-- 고정 높이 Grid로 래핑: hover 시 재측정용 Height 1px 바운스가 카드 밖 레이아웃을 밀지 않도록 클리핑 -->
+          <Grid Height="248" ClipToBounds="True">
+            <lvc:CartesianChart x:Name="UsageChart" Height="248"
+                                Background="Transparent"
+                                Series="{Binding Series}"
+                                XAxes="{Binding XAxes}"
+                                YAxes="{Binding YAxes}"
+                                LegendTextPaint="{Binding LegendTextPaint}"
+                                TooltipTextPaint="{Binding TooltipTextPaint}"
+                                TooltipBackgroundPaint="{Binding TooltipBackgroundPaint}"
+                                TooltipPosition="Top"
+                                LegendPosition="Top"/>
+          </Grid>
         </StackPanel>
       </Border>
 

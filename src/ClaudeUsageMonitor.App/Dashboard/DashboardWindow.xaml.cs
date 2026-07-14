@@ -176,15 +176,22 @@ public partial class DashboardWindow : Window
         AddSparkText("$0", 4, padT + plotH - 8);
         AddSparkText("$" + max.ToString("0"), 4, padT - 4);
 
-        // X 날짜 라벨 (기본 표시, 6개 내외로 subsample)
+        // X 날짜 라벨 — 각 데이터 점에 정렬해 표시(토큰 차트처럼 전체), 겹치면 그 라벨만 건너뜀
         if (_sparkLbls.Length == n)
         {
-            int step = Math.Max(1, (int)Math.Ceiling(n / 6.0));
-            for (var i = 0; i < n; i += step)
+            var lastRight = double.NegativeInfinity;
+            for (var i = 0; i < n; i++)
             {
                 var t = MakeSparkText(_sparkLbls[i]);
                 t.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                Canvas.SetLeft(t, Math.Max(0, Math.Min(w - t.DesiredSize.Width, _sparkPts[i].X - t.DesiredSize.Width / 2)));
+                var lw = t.DesiredSize.Width;
+                var lx = Math.Max(0, Math.Min(w - lw, _sparkPts[i].X - lw / 2));
+                if (lx < lastRight + 5)
+                {
+                    continue; // 이전 라벨과 겹침 — 건너뜀(점 정렬은 유지)
+                }
+                lastRight = lx + lw;
+                Canvas.SetLeft(t, lx);
                 Canvas.SetTop(t, padT + plotH + 6);
                 SparkCanvas.Children.Add(t);
             }

@@ -44,6 +44,9 @@ public partial class DashboardViewModel : ObservableObject,
     private RollupData _rollup = new();
     private DateTimeOffset? _fiveHourResetsAt;
 
+    // 차트가 사용한 전역 모델 순서(추세 범위 기준). 모델 분해 도트 색을 차트 세그먼트 색과 일치시키는 데 사용.
+    private List<string> _chartModelOrder = [];
+
     // 대시보드는 실시간 자동 갱신하지 않는다 — 최신 폴링 결과만 보관했다가 Refresh(창 열림/새로고침)에서 반영
     private RateLimitUpdatedMessage? _latestRateLimit;
 
@@ -86,12 +89,6 @@ public partial class DashboardViewModel : ObservableObject,
 
     [ObservableProperty]
     private string _periodTotalCostText = "-";
-
-    [ObservableProperty]
-    private string _periodTokensAvgText = "";
-
-    [ObservableProperty]
-    private string _periodCostAvgText = "";
 
     /// <summary>비용 스파크라인용 기간별 USD 값 — 코드비하인드가 Polyline으로 렌더(별도 차트 인스턴스 없이).</summary>
     [ObservableProperty]
@@ -269,44 +266,94 @@ public partial class DashboardViewModel : ObservableObject,
 
     private void RebuildChart()
     {
-        switch (PeriodIndex)
-        {
-            case 1:
-                BuildWeekly();
-                break;
-            case 2:
-                BuildMonthly();
-                break;
-            default:
-                BuildDaily();
-                break;
-        }
+        BuildTrendChart();                       // 차트 = 기간 추세(모델 스택) + 비용 스파크라인
+        var current = CurrentPeriodByModel();    // 총계·모델분해 = 현재 기간(당일/이번주 일~토/이번달)
+        ApplyPeriodTotals(current);
+        UpdateModelBreakdown(current);
         UpdateCoverageNote();
     }
 
-    private void BuildDaily()
+    private void BuildTrendChart()
+    {
+        switch (PeriodIndex)
+        {
+            case 1:
+                BuildWeeklyTrend();
+                break;
+            case 2:
+                BuildMonthlyTrend();
+                break;
+            default:
+                BuildDailyTrend();
+                break;
+        }
+    }
+
+    private void BuildDailyTrend()
     {
         var today = DateOnly.FromDateTime(DateTime.Now);
-        var from = today.AddDays(-13);
-        var range = _rollup.Range(from, today);
-
+        var range = _rollup.Range(today.AddDays(-13), today);
         var labels = range.Select(d => d.Date.ToString("MM-dd")).ToArray();
-        var models = range.SelectMany(d => d.ByModel.Keys).Distinct().OrderBy(m => m).ToList();
+        var byModel = range.Select(d => d.ByModel.ToDictionary(kv => kv.Key, kv => kv.Value.Tokens)).ToList();
+        var costs = range.Select(DayCost).ToArray();
+        BuildStackedChart(labels, byModel, costs);
+    }
 
-        var seriesList = new List<ISeries>();
+    private void BuildWeeklyTrend()
+    {
+        // 일요일 시작 주로 집계 — 마지막 막대 = 이번 주(KPI/모델분해 경계와 일치). 약 12주 커버.
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        var start = today.AddDays(-(int)today.DayOfWeek).AddDays(-7 * 11);
+        var weeks = _rollup.Range(start, today)
+            .GroupBy(d => d.Date.AddDays(-(int)d.Date.DayOfWeek))
+            .OrderBy(g => g.Key)
+            .Select(g =>
+            {
+                var m = new Dictionary<string, TokenCounts>();
+                foreach (var d in g)
+                {
+                    foreach (var (model, u) in d.ByModel)
+                    {
+                        m[model] = m.TryGetValue(model, out var t) ? t + u.Tokens : u.Tokens;
+                    }
+                }
+                return (Sunday: g.Key, ByModel: m);
+            })
+            .ToList();
+        var labels = weeks.Select(x => x.Sunday.ToString("MM-dd")).ToArray();
+        var byModel = weeks.Select(x => x.ByModel).ToList();
+        var costs = weeks.Select(x => (double)CostOf(x.ByModel)).ToArray();
+        BuildStackedChart(labels, byModel, costs);
+    }
+
+    private void BuildMonthlyTrend()
+    {
+        var months = _rollup.MonthlyTotals().TakeLast(12).ToList();
+        var labels = months.Select(m => m.Month).ToArray();
+        var byModel = months.Select(m => m.ByModel).ToList();
+        var costs = months.Select(m => (double)CostOf(m.ByModel)).ToArray();
+        BuildStackedChart(labels, byModel, costs);
+    }
+
+    /// <summary>모델별 스택 컬럼(일/주/월 공통). 모델명 오름차순 팔레트로 색 일관성 유지.</summary>
+    private void BuildStackedChart(string[] labels, IReadOnlyList<Dictionary<string, TokenCounts>> byModelPerBucket, double[] costs)
+    {
+        var models = byModelPerBucket.SelectMany(b => b.Keys).Distinct().OrderBy(m => m).ToList();
+        _chartModelOrder = models; // 모델 분해가 같은 순서로 색을 매기도록 보관
+        var series = new List<ISeries>();
         for (var i = 0; i < models.Count; i++)
         {
             var model = models[i];
-            var values = range
-                .Select(d => d.ByModel.TryGetValue(model, out var u) ? (double)u.Tokens.Total : 0d)
+            var values = byModelPerBucket
+                .Select(b => b.TryGetValue(model, out var t) ? (double)t.Total : 0d)
                 .ToArray();
-            seriesList.Add(new StackedColumnSeries<double>
+            series.Add(new StackedColumnSeries<double>
             {
                 Name = ShortModelName(model),
                 Values = values,
                 ScalesYAt = 0,
                 Fill = new SolidColorPaint(Palette[i % Palette.Length]),
-                // 토큰 수치 라벨 — 1M 미만 세그먼트는 겹침 방지를 위해 생략
+                // 세그먼트 값 라벨 — 1M 미만은 겹침 방지로 생략
                 DataLabelsPaint = new SolidColorPaint(SKColors.White),
                 DataLabelsSize = 10,
                 DataLabelsPosition = LiveChartsCore.Measure.DataLabelsPosition.Middle,
@@ -317,72 +364,54 @@ public partial class DashboardViewModel : ObservableObject,
                 YToolTipLabelFormatter = point => FormatTokens((long)point.Coordinate.PrimaryValue),
             });
         }
+        ApplyChart(series, labels, costs);
+    }
 
-        var costs = range.Select(DayCost).ToArray();
-        ApplyChart(seriesList, labels,
-            range.Sum(d => d.TotalTokens.Total),
-            costs.Sum(), costs, "/일");
-
+    /// <summary>현재 기간(일간=당일 / 주간=이번 주 일요일~토요일 / 월간=이번 달)의 모델별 토큰 —
+    /// 총계 카드·모델 분해의 소스. 차트가 보여주는 추세 범위와 별개로 "선택 기간" 집계다.</summary>
+    private Dictionary<string, TokenCounts> CurrentPeriodByModel()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        DateOnly from, to;
+        switch (PeriodIndex)
+        {
+            case 1: // 이번 주 (일요일~토요일)
+                from = today.AddDays(-(int)DateTime.Now.DayOfWeek);
+                to = from.AddDays(6);
+                break;
+            case 2: // 이번 달
+                from = new DateOnly(today.Year, today.Month, 1);
+                to = from.AddMonths(1).AddDays(-1);
+                break;
+            default: // 당일
+                from = today;
+                to = today;
+                break;
+        }
         var merged = new Dictionary<string, TokenCounts>();
-        foreach (var day in range)
+        foreach (var day in _rollup.Range(from, to))
         {
             foreach (var (model, usage) in day.ByModel)
             {
                 merged[model] = merged.TryGetValue(model, out var t) ? t + usage.Tokens : usage.Tokens;
             }
         }
-        UpdateModelBreakdown(merged);
-    }
-
-    private void BuildWeekly()
-    {
-        var weeks = _rollup.WeeklyTotals().TakeLast(12).ToList();
-        var labels = weeks.Select(w => w.WeekStart.ToString("MM-dd") + "~").ToArray();
-        var tokens = weeks.Select(w => (double)w.Tokens.Total).ToArray();
-        var costs = weeks.Select(w => (double)CostOf(w.ByModel)).ToArray();
-
-        ApplyChart(
-            [MakeTokenColumns(tokens, Palette[0])],
-            labels,
-            weeks.Sum(w => w.Tokens.Total),
-            costs.Sum(), costs, "/주");
-
-        UpdateModelBreakdown(MergeByModel(weeks.Select(w => w.ByModel)));
-    }
-
-    private void BuildMonthly()
-    {
-        var months = _rollup.MonthlyTotals().TakeLast(12).ToList();
-        var labels = months.Select(m => m.Month).ToArray();
-        var tokens = months.Select(m => (double)m.Tokens.Total).ToArray();
-        var costs = months.Select(m => (double)CostOf(m.ByModel)).ToArray();
-
-        ApplyChart(
-            [MakeTokenColumns(tokens, Palette[1])],
-            labels,
-            months.Sum(m => m.Tokens.Total),
-            costs.Sum(), costs, "/월");
-
-        UpdateModelBreakdown(MergeByModel(months.Select(m => m.ByModel)));
-    }
-
-    private static Dictionary<string, TokenCounts> MergeByModel(IEnumerable<Dictionary<string, TokenCounts>> parts)
-    {
-        var merged = new Dictionary<string, TokenCounts>();
-        foreach (var part in parts)
-        {
-            foreach (var (model, tokens) in part)
-            {
-                merged[model] = merged.TryGetValue(model, out var t) ? t + tokens : tokens;
-            }
-        }
         return merged;
+    }
+
+    private void ApplyPeriodTotals(Dictionary<string, TokenCounts> byModel)
+    {
+        long totalTokens = 0;
+        foreach (var t in byModel.Values)
+        {
+            totalTokens += t.Total;
+        }
+        PeriodTotalTokensText = FormatTokens(totalTokens);
+        PeriodTotalCostText = "$" + ((double)CostOf(byModel)).ToString("0.00", CultureInfo.InvariantCulture);
     }
 
     private void UpdateModelBreakdown(Dictionary<string, TokenCounts> byModel)
     {
-        // 팔레트 인덱스는 일간 차트 시리즈와 동일한 모델명 오름차순 매핑 — 색 일관성 유지
-        var paletteOrder = byModel.Keys.OrderBy(m => m).ToList();
         var rows = byModel
             .Select(kv => (Model: kv.Key, Tokens: kv.Value, Cost: CostCalculator.Cost(kv.Value, _pricing.Resolve(kv.Key))))
             .OrderByDescending(r => r.Cost)
@@ -392,7 +421,9 @@ public partial class DashboardViewModel : ObservableObject,
         ModelBreakdown.Clear();
         foreach (var (model, tokens, cost) in rows)
         {
-            var color = Palette[paletteOrder.IndexOf(model) % Palette.Length];
+            // 색은 차트의 전역 모델 순서로 매겨 차트 세그먼트와 도트 색을 일치시킨다
+            var gi = _chartModelOrder.IndexOf(model);
+            var color = Palette[(gi < 0 ? 0 : gi) % Palette.Length];
             var dot = new System.Windows.Media.SolidColorBrush(
                 System.Windows.Media.Color.FromRgb(color.Red, color.Green, color.Blue));
             dot.Freeze();
@@ -408,25 +439,8 @@ public partial class DashboardViewModel : ObservableObject,
         HasBreakdown = ModelBreakdown.Count > 0;
     }
 
-    private ColumnSeries<double> MakeTokenColumns(double[] tokens, SKColor color) => new()
-    {
-        Name = "토큰",
-        Values = tokens,
-        ScalesYAt = 0,
-        Fill = new SolidColorPaint(color),
-        DataLabelsPaint = ChartTextPaint(),
-        DataLabelsSize = 10,
-        DataLabelsPosition = LiveChartsCore.Measure.DataLabelsPosition.Top,
-        DataLabelsFormatter = point =>
-            point.Coordinate.PrimaryValue > 0
-                ? FormatTokens((long)point.Coordinate.PrimaryValue)
-                : "",
-        YToolTipLabelFormatter = point => FormatTokens((long)point.Coordinate.PrimaryValue),
-    };
-
-    // 이중 Y축 제거: 토큰만 단일 좌축 스택. 비용은 별도 스파크라인(CostPoints) + KPI 평균 + 모델 공유 바로 분리.
-    private void ApplyChart(IReadOnlyList<ISeries> series, string[] labels, long totalTokens, double totalCost,
-        double[] costs, string avgUnit)
+    // 이중 Y축 제거: 토큰만 단일 좌축 스택. 비용은 별도 스파크라인(CostPoints)으로 분리.
+    private void ApplyChart(IReadOnlyList<ISeries> series, string[] labels, double[] costs)
     {
         var labelPaint = ChartTextPaint();
         Series = series.ToArray();
@@ -434,11 +448,6 @@ public partial class DashboardViewModel : ObservableObject,
         YAxes = [new Axis { TextSize = 11, MinLimit = 0, LabelsPaint = labelPaint, Labeler = v => FormatTokens((long)v) }];
         CostPoints = costs;
         CostLabels = labels;
-        PeriodTotalTokensText = FormatTokens(totalTokens);
-        PeriodTotalCostText = "$" + totalCost.ToString("0.00", CultureInfo.InvariantCulture);
-        var n = Math.Max(1, labels.Length);
-        PeriodTokensAvgText = "≈ " + FormatTokens(totalTokens / n) + " " + avgUnit;
-        PeriodCostAvgText = "≈ $" + (totalCost / n).ToString("0.00", CultureInfo.InvariantCulture) + " " + avgUnit;
     }
 
     private double DayCost(DailyRollup day)
