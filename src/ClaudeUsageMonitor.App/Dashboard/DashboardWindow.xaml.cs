@@ -1,6 +1,9 @@
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
@@ -17,6 +20,13 @@ public partial class DashboardWindow : Window
 
     private readonly DashboardViewModel _viewModel;
     private DateTime _lastHoverKick;
+
+    // 비용 스파크라인 hover 상태 (점 좌표·값·라벨·hover 오버레이)
+    private readonly List<Point> _sparkPts = new();
+    private readonly List<UIElement> _sparkHover = new();
+    private double[] _sparkVals = [];
+    private string[] _sparkLbls = [];
+    private double _sparkPlotTop, _sparkPlotBottom;
 
     public event Action? SettingsRequested;
     public event Action? InquiryRequested;
@@ -58,6 +68,8 @@ public partial class DashboardWindow : Window
         _viewModel.ModelBreakdown.CollectionChanged += (_, _) => BuildShareBar();
 
         SparkCanvas.SizeChanged += (_, _) => DrawSparkline();
+        SparkCanvas.MouseMove += OnSparkMove;
+        SparkCanvas.MouseLeave += (_, _) => ClearSparkHover();
 
         // hover 툴팁도 같은 렌더 고착으로 그려지지 않음 — 차트 위 마우스 이동 시 스로틀 킥으로 페인트 강제
         UsageChart.MouseMove += (_, _) =>
@@ -82,23 +94,30 @@ public partial class DashboardWindow : Window
         ContentRendered += (_, _) => NudgeChart();
     }
 
-    /// <summary>비용 추이 스파크라인 — CostPoints를 SparkCanvas에 영역+선+끝점으로 직접 그린다(단일 $축).</summary>
+    /// <summary>비용 추이 스파크라인 — CostPoints를 SparkCanvas에 영역+선+끝점+날짜축으로 직접 그린다(단일 $축).
+    /// 점 좌표를 보관해 hover 시 해당 날짜의 금액 툴팁을 표시한다.</summary>
     private void DrawSparkline()
     {
         SparkCanvas.Children.Clear();
-        var pts = _viewModel.CostPoints;
+        _sparkHover.Clear();
+        _sparkPts.Clear();
+        var pts = _viewModel.CostPoints ?? [];
+        _sparkVals = pts;
+        _sparkLbls = _viewModel.CostLabels ?? [];
         double w = SparkCanvas.ActualWidth, h = SparkCanvas.ActualHeight;
-        if (pts is null || pts.Length == 0 || w <= 2 || h <= 2)
+        if (pts.Length == 0 || w <= 2 || h <= 2)
         {
             return;
         }
 
-        const double padL = 32, padR = 10, padT = 10, padB = 14;
+        const double padL = 34, padR = 12, padT = 10, padB = 24; // padB로 날짜 라벨 공간 확보
         double plotW = w - padL - padR, plotH = h - padT - padB;
         if (plotW <= 4 || plotH <= 4)
         {
             return;
         }
+        _sparkPlotTop = padT;
+        _sparkPlotBottom = padT + plotH;
 
         double max = 0;
         foreach (var v in pts)
@@ -109,20 +128,22 @@ public partial class DashboardWindow : Window
 
         int n = pts.Length;
         double dx = n > 1 ? plotW / (n - 1) : 0;
-        Point At(int i) => new(
-            padL + (n > 1 ? i * dx : plotW / 2),
-            padT + plotH - pts[i] / max * plotH);
+        for (var i = 0; i < n; i++)
+        {
+            _sparkPts.Add(new Point(padL + (n > 1 ? i * dx : plotW / 2), padT + plotH - pts[i] / max * plotH));
+        }
 
         var stroke = new SolidColorBrush(CostGreen);
         stroke.Freeze();
+        var cardBg = (TryFindResource("ChartCardBrush") as SolidColorBrush)?.Color ?? SparkMarkerFill;
 
         // 영역(그라데이션)
         var fig = new PathFigure { StartPoint = new Point(padL, padT + plotH) };
-        for (var i = 0; i < n; i++)
+        foreach (var p in _sparkPts)
         {
-            fig.Segments.Add(new LineSegment(At(i), false));
+            fig.Segments.Add(new LineSegment(p, false));
         }
-        fig.Segments.Add(new LineSegment(new Point(padL + (n > 1 ? plotW : plotW / 2 + 0.1), padT + plotH), false));
+        fig.Segments.Add(new LineSegment(new Point(_sparkPts[^1].X, padT + plotH), false));
         fig.IsClosed = true;
         var areaBrush = new LinearGradientBrush
         {
@@ -138,38 +159,140 @@ public partial class DashboardWindow : Window
 
         // 선
         var line = new Polyline { Stroke = stroke, StrokeThickness = 2, StrokeLineJoin = PenLineJoin.Round };
-        for (var i = 0; i < n; i++)
+        foreach (var p in _sparkPts)
         {
-            line.Points.Add(At(i));
+            line.Points.Add(p);
         }
         SparkCanvas.Children.Add(line);
 
         // 끝점 마커
-        var last = At(n - 1);
-        var dot = new Ellipse
-        {
-            Width = 7, Height = 7, Stroke = stroke, StrokeThickness = 2,
-            Fill = new SolidColorBrush(SparkMarkerFill),
-        };
+        var last = _sparkPts[^1];
+        var dot = new Ellipse { Width = 7, Height = 7, Stroke = stroke, StrokeThickness = 2, Fill = new SolidColorBrush(cardBg) };
         Canvas.SetLeft(dot, last.X - 3.5);
         Canvas.SetTop(dot, last.Y - 3.5);
         SparkCanvas.Children.Add(dot);
 
         // $축 라벨
-        AddSparkLabel("$0", 4, padT + plotH - 8);
-        AddSparkLabel("$" + max.ToString("0"), 4, padT - 4);
+        AddSparkText("$0", 4, padT + plotH - 8);
+        AddSparkText("$" + max.ToString("0"), 4, padT - 4);
+
+        // X 날짜 라벨 (기본 표시, 6개 내외로 subsample)
+        if (_sparkLbls.Length == n)
+        {
+            int step = Math.Max(1, (int)Math.Ceiling(n / 6.0));
+            for (var i = 0; i < n; i += step)
+            {
+                var t = MakeSparkText(_sparkLbls[i]);
+                t.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                Canvas.SetLeft(t, Math.Max(0, Math.Min(w - t.DesiredSize.Width, _sparkPts[i].X - t.DesiredSize.Width / 2)));
+                Canvas.SetTop(t, padT + plotH + 6);
+                SparkCanvas.Children.Add(t);
+            }
+        }
     }
 
-    private void AddSparkLabel(string text, double x, double y)
+    private TextBlock MakeSparkText(string text) => new()
     {
-        var label = new TextBlock
+        Text = text, FontSize = 10, FontFamily = MonoFamily, Foreground = new SolidColorBrush(SparkAxis),
+    };
+
+    private void AddSparkText(string text, double x, double y)
+    {
+        var t = MakeSparkText(text);
+        Canvas.SetLeft(t, x);
+        Canvas.SetTop(t, y);
+        SparkCanvas.Children.Add(t);
+    }
+
+    private void OnSparkMove(object sender, MouseEventArgs e)
+    {
+        if (_sparkPts.Count == 0)
         {
-            Text = text, FontSize = 10, FontFamily = MonoFamily,
-            Foreground = new SolidColorBrush(SparkAxis),
+            return;
+        }
+        var mx = e.GetPosition(SparkCanvas).X;
+        int best = 0;
+        double bestDist = double.MaxValue;
+        for (var i = 0; i < _sparkPts.Count; i++)
+        {
+            var d = Math.Abs(_sparkPts[i].X - mx);
+            if (d < bestDist)
+            {
+                bestDist = d;
+                best = i;
+            }
+        }
+        ShowSparkHover(best);
+    }
+
+    private void ClearSparkHover()
+    {
+        foreach (var el in _sparkHover)
+        {
+            SparkCanvas.Children.Remove(el);
+        }
+        _sparkHover.Clear();
+    }
+
+    /// <summary>hover: 해당 날짜에 십자선+마커+툴팁(날짜·금액)을 표시.</summary>
+    private void ShowSparkHover(int i)
+    {
+        ClearSparkHover();
+        if (i < 0 || i >= _sparkPts.Count)
+        {
+            return;
+        }
+        var p = _sparkPts[i];
+        double w = SparkCanvas.ActualWidth, h = SparkCanvas.ActualHeight;
+        var stroke = new SolidColorBrush(CostGreen);
+        var cardBg = (TryFindResource("ChartCardBrush") as SolidColorBrush)?.Color ?? SparkMarkerFill;
+
+        var cross = new Line
+        {
+            X1 = p.X, X2 = p.X, Y1 = _sparkPlotTop, Y2 = _sparkPlotBottom,
+            Stroke = new SolidColorBrush(SparkAxis) { Opacity = 0.55 }, StrokeThickness = 1,
+            StrokeDashArray = new DoubleCollection { 3, 2 },
         };
-        Canvas.SetLeft(label, x);
-        Canvas.SetTop(label, y);
-        SparkCanvas.Children.Add(label);
+        SparkCanvas.Children.Add(cross);
+        _sparkHover.Add(cross);
+
+        var mk = new Ellipse { Width = 9, Height = 9, Stroke = stroke, StrokeThickness = 2, Fill = new SolidColorBrush(cardBg) };
+        Canvas.SetLeft(mk, p.X - 4.5);
+        Canvas.SetTop(mk, p.Y - 4.5);
+        SparkCanvas.Children.Add(mk);
+        _sparkHover.Add(mk);
+
+        var date = i < _sparkLbls.Length ? _sparkLbls[i] : "";
+        var val = i < _sparkVals.Length ? _sparkVals[i] : 0;
+        var box = new Border
+        {
+            Background = TryFindResource("CardBackgroundBrush") as Brush ?? Brushes.Black,
+            BorderBrush = TryFindResource("CardBorderBrush") as Brush ?? Brushes.Gray,
+            BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(5),
+            Padding = new Thickness(9, 5, 9, 6),
+        };
+        var sp = new StackPanel();
+        sp.Children.Add(new TextBlock
+        {
+            Text = date, FontSize = 10.5, FontFamily = MonoFamily,
+            Foreground = TryFindResource("TextPrimaryBrush") as Brush ?? Brushes.White, Opacity = 0.7,
+        });
+        sp.Children.Add(new TextBlock
+        {
+            Text = "$" + val.ToString("0.00", CultureInfo.InvariantCulture),
+            FontSize = 13, FontWeight = FontWeights.Bold, FontFamily = MonoFamily,
+            Foreground = TryFindResource("SuccessTextBrush") as Brush ?? stroke,
+        });
+        box.Child = sp;
+        box.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        double bw = box.DesiredSize.Width, bh = box.DesiredSize.Height;
+        double bx = p.X > w / 2 ? p.X - bw - 10 : p.X + 10;
+        bx = Math.Max(2, Math.Min(w - bw - 2, bx));
+        double by = Math.Max(2, Math.Min(h - bh - 2, p.Y - bh - 6));
+        Canvas.SetLeft(box, bx);
+        Canvas.SetTop(box, by);
+        SparkCanvas.Children.Add(box);
+        _sparkHover.Add(box);
     }
 
     /// <summary>모델별 비용 100% 공유 바 — ModelBreakdown의 Share 비율로 star 컬럼을 구성한다.</summary>

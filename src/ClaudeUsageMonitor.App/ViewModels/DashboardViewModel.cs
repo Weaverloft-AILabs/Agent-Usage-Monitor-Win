@@ -97,6 +97,10 @@ public partial class DashboardViewModel : ObservableObject,
     [ObservableProperty]
     private double[] _costPoints = [];
 
+    /// <summary>비용 스파크라인의 X축 날짜 라벨(메인 차트와 동일). hover 툴팁·기본 축 표시에 사용.</summary>
+    [ObservableProperty]
+    private string[] _costLabels = [];
+
     [ObservableProperty]
     private string _coverageNote = "";
 
@@ -429,6 +433,7 @@ public partial class DashboardViewModel : ObservableObject,
         XAxes = [new Axis { Labels = labels, LabelsRotation = 0, TextSize = 11, LabelsPaint = labelPaint }];
         YAxes = [new Axis { TextSize = 11, MinLimit = 0, LabelsPaint = labelPaint, Labeler = v => FormatTokens((long)v) }];
         CostPoints = costs;
+        CostLabels = labels;
         PeriodTotalTokensText = FormatTokens(totalTokens);
         PeriodTotalCostText = "$" + totalCost.ToString("0.00", CultureInfo.InvariantCulture);
         var n = Math.Max(1, labels.Length);

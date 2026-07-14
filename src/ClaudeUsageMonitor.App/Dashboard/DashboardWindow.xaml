@@ -31,9 +31,10 @@
       <Setter Property="Opacity" Value="0.95"/>
     </Style>
     <Style x:Key="MutedLabel" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
       <Setter Property="FontFamily" Value="{StaticResource MonoFont}"/>
       <Setter Property="FontSize" Value="10.5"/>
-      <Setter Property="Opacity" Value="0.4"/>
+      <Setter Property="Opacity" Value="0.5"/>
     </Style>
 
     <!-- icon toolbar buttons -->
@@ -89,18 +90,11 @@
 
     <!-- hero gauge card (subtle vertical gradient) -->
     <Style x:Key="GaugeCard" TargetType="Border">
+      <Setter Property="Background" Value="{DynamicResource GaugeCardBrush}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="12"/>
-      <Setter Property="Padding" Value="17,15"/>
-      <Setter Property="Background">
-        <Setter.Value>
-          <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#2E3040" Offset="0"/>
-            <GradientStop Color="#252733" Offset="1"/>
-          </LinearGradientBrush>
-        </Setter.Value>
-      </Setter>
+      <Setter Property="Padding" Value="14,10"/>
     </Style>
 
     <!-- rounded meter -->
@@ -128,21 +122,22 @@
       <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="10"/>
-      <Setter Property="Padding" Value="13,8"/>
-      <Setter Property="MinWidth" Value="120"/>
+      <Setter Property="Padding" Value="12,7"/>
+      <Setter Property="MinWidth" Value="138"/>
       <Setter Property="Margin" Value="8,0,0,0"/>
     </Style>
 
     <!-- chart / section card -->
     <Style x:Key="ChartCard" TargetType="Border">
-      <Setter Property="Background" Value="#242634"/>
-      <Setter Property="BorderBrush" Value="#2E3140"/>
+      <Setter Property="Background" Value="{DynamicResource ChartCardBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource ChartCardBorderBrush}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="12"/>
       <Setter Property="Padding" Value="15,12"/>
       <Setter Property="Margin" Value="0,0,0,12"/>
     </Style>
     <Style x:Key="CardTitle" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
       <Setter Property="FontSize" Value="12"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
@@ -163,26 +158,34 @@
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
           <Border Background="{DynamicResource BadgeBackgroundBrush}" CornerRadius="10" Padding="10,4" VerticalAlignment="Center">
-            <TextBlock Text="{Binding PlanBadge}" FontSize="11" Foreground="#D6E2F5"/>
+            <TextBlock Text="{Binding PlanBadge}" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}"/>
           </Border>
           <TextBlock Text="●" FontSize="10" Foreground="#F0A030" VerticalAlignment="Center" Margin="6,0,0,0"
                      ToolTip="캐시된(stale) 데이터" Visibility="{Binding IsStale, Converter={StaticResource BoolToVis}}"/>
+          <!-- 아이콘: 24x24 고정 Canvas를 Viewbox로 담아 버튼 정중앙에 일관 배치 -->
           <Button x:Name="RefreshButton" Style="{StaticResource IconButtonAccent}" ToolTip="새로고침">
-            <Viewbox Width="15" Height="15">
-              <Path Data="M13 8 A5 5 0 1 1 11.5 4.4 M13 2.6 V5.1 H10.5" Stroke="White" StrokeThickness="1.5"
-                    StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+            <Viewbox Width="16" Height="16">
+              <Canvas Width="24" Height="24">
+                <Path Data="M20.49 15a9 9 0 1 1-2.12-9.36L23 10 M23 4v6h-6" Stroke="White" StrokeThickness="2"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+              </Canvas>
             </Viewbox>
           </Button>
           <Button x:Name="SettingsButton" Style="{StaticResource IconButton}" ToolTip="설정">
-            <Viewbox Width="15" Height="15">
-              <Path Data="M8 5.6 A2.4 2.4 0 1 0 8.01 5.6 M8 2 V3.6 M8 12.4 V14 M2 8 H3.6 M12.4 8 H14 M3.76 3.76 L4.9 4.9 M11.1 11.1 L12.24 12.24 M12.24 3.76 L11.1 4.9 M4.9 11.1 L3.76 12.24"
-                    Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.3" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+            <Viewbox Width="16" Height="16">
+              <Canvas Width="24" Height="24">
+                <Path Fill="{DynamicResource TextPrimaryBrush}"
+                      Data="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+              </Canvas>
             </Viewbox>
           </Button>
           <Button x:Name="InquiryButton" Style="{StaticResource IconButton}" ToolTip="문의하기">
-            <Viewbox Width="15" Height="15">
-              <Path Data="M2 3.5 H14 V12.5 H2 Z M2.5 4 L8 8.5 L13.5 4" Stroke="{DynamicResource TextPrimaryBrush}"
-                    StrokeThickness="1.3" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+            <Viewbox Width="16" Height="16">
+              <Canvas Width="24" Height="24">
+                <Path Data="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z M22 6l-10 7L2 6"
+                      Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+              </Canvas>
             </Viewbox>
           </Button>
         </StackPanel>
@@ -198,30 +201,31 @@
         <Border Grid.Column="0" Style="{StaticResource GaugeCard}" Margin="0,0,7,0">
           <StackPanel>
             <Grid>
-              <TextBlock Text="5시간 사용률" FontSize="12" Opacity="0.62" HorizontalAlignment="Left"/>
-              <TextBlock Text="{Binding FiveHourResetText}" FontSize="11" Opacity="0.42"
+              <TextBlock Text="5시간 사용률" FontSize="11" Opacity="0.62" HorizontalAlignment="Left"/>
+              <TextBlock Text="{Binding FiveHourResetText}" FontSize="10" Opacity="0.42"
                          FontFamily="{StaticResource MonoFont}" HorizontalAlignment="Right"/>
             </Grid>
-            <StackPanel Orientation="Horizontal" Margin="0,3,0,11">
-              <TextBlock Text="{Binding FiveHourPct, StringFormat={}{0:0}}" FontSize="42" FontWeight="Bold"
-                         FontFamily="{StaticResource MonoFont}" LineHeight="42"/>
-              <TextBlock Text="%" FontSize="20" FontWeight="SemiBold" Opacity="0.6"
-                         VerticalAlignment="Bottom" Margin="2,0,0,6"/>
+            <StackPanel Orientation="Horizontal" Margin="0,1,0,6">
+              <TextBlock Text="{Binding FiveHourPct, StringFormat={}{0:0}}" FontSize="28" FontWeight="Bold"
+                         FontFamily="{StaticResource MonoFont}" LineHeight="28"/>
+              <TextBlock Text="%" FontSize="14" FontWeight="SemiBold" Opacity="0.6"
+                         VerticalAlignment="Bottom" Margin="2,0,0,4"/>
             </StackPanel>
-            <Grid Height="9">
-              <ProgressBar Value="{Binding FiveHourPct, Mode=OneWay}" Maximum="100"
+            <Grid Height="7">
+              <ProgressBar Value="{Binding FiveHourPct, Mode=OneWay}" Maximum="100" Height="7"
                            Style="{StaticResource GaugeBar}" Foreground="#5AAAFA"/>
               <Grid>
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="{Binding WarnThresholdPct, Converter={StaticResource PercentStar}}"/>
                   <ColumnDefinition Width="{Binding WarnThresholdPct, Converter={StaticResource PercentStar}, ConverterParameter=rest}"/>
                 </Grid.ColumnDefinitions>
-                <Rectangle Grid.Column="1" Width="2" Height="15" RadiusX="1" RadiusY="1"
-                           HorizontalAlignment="Left" Fill="#B0FFFFFF"
+                <Rectangle Grid.Column="1" Width="2" Height="12" RadiusX="1" RadiusY="1"
+                           HorizontalAlignment="Left" VerticalAlignment="Center"
+                           Fill="{DynamicResource TextPrimaryBrush}" Opacity="0.7"
                            ToolTip="{Binding WarnThresholdPct, StringFormat=경고 임계값 {0:0}%}"/>
               </Grid>
             </Grid>
-            <TextBlock Text="{Binding ExhaustionNote}" FontSize="10.5" Margin="0,10,0,0"
+            <TextBlock Text="{Binding ExhaustionNote}" FontSize="9.5" Margin="0,6,0,0"
                        Foreground="{DynamicResource PredictionBrush}" FontWeight="SemiBold"
                        Style="{StaticResource HideWhenEmpty}"/>
           </StackPanel>
@@ -230,21 +234,20 @@
         <Border Grid.Column="1" Style="{StaticResource GaugeCard}" Margin="7,0,0,0">
           <StackPanel>
             <Grid>
-              <TextBlock Text="주간 사용률" FontSize="12" Opacity="0.62" HorizontalAlignment="Left"/>
-              <TextBlock Text="{Binding SevenDayResetText}" FontSize="11" Opacity="0.42"
+              <TextBlock Text="주간 사용률" FontSize="11" Opacity="0.62" HorizontalAlignment="Left"/>
+              <TextBlock Text="{Binding SevenDayResetText}" FontSize="10" Opacity="0.42"
                          FontFamily="{StaticResource MonoFont}" HorizontalAlignment="Right"/>
             </Grid>
-            <StackPanel Orientation="Horizontal" Margin="0,3,0,11">
-              <TextBlock Text="{Binding SevenDayPct, StringFormat={}{0:0}}" FontSize="42" FontWeight="Bold"
-                         FontFamily="{StaticResource MonoFont}" LineHeight="42"/>
-              <TextBlock Text="%" FontSize="20" FontWeight="SemiBold" Opacity="0.6"
-                         VerticalAlignment="Bottom" Margin="2,0,0,6"/>
+            <StackPanel Orientation="Horizontal" Margin="0,1,0,6">
+              <TextBlock Text="{Binding SevenDayPct, StringFormat={}{0:0}}" FontSize="28" FontWeight="Bold"
+                         FontFamily="{StaticResource MonoFont}" LineHeight="28"/>
+              <TextBlock Text="%" FontSize="14" FontWeight="SemiBold" Opacity="0.6"
+                         VerticalAlignment="Bottom" Margin="2,0,0,4"/>
             </StackPanel>
-            <Grid Height="9">
-              <ProgressBar Value="{Binding SevenDayPct, Mode=OneWay}" Maximum="100"
+            <Grid Height="7">
+              <ProgressBar Value="{Binding SevenDayPct, Mode=OneWay}" Maximum="100" Height="7"
                            Style="{StaticResource GaugeBar}" Foreground="#8A6CF0"/>
             </Grid>
-            <TextBlock Text="" FontSize="10.5" Margin="0,10,0,0"/>
           </StackPanel>
         </Border>
       </Grid>
@@ -268,18 +271,24 @@
         </Border>
         <Border Grid.Column="2" Style="{StaticResource StatTile}">
           <StackPanel>
-            <TextBlock Text="총 토큰" FontSize="10.5" Opacity="0.4"/>
-            <TextBlock Text="{Binding PeriodTotalTokensText}" FontSize="19" FontWeight="Bold"
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="총 토큰" FontSize="10.5" Opacity="0.5" VerticalAlignment="Center"/>
+              <TextBlock Text="{Binding PeriodTokensAvgText}" Style="{StaticResource MutedLabel}"
+                         Margin="8,0,0,0" VerticalAlignment="Center"/>
+            </StackPanel>
+            <TextBlock Text="{Binding PeriodTotalTokensText}" FontSize="18" FontWeight="Bold"
                        FontFamily="{StaticResource MonoFont}" Margin="0,1,0,0"/>
-            <TextBlock Text="{Binding PeriodTokensAvgText}" Style="{StaticResource MutedLabel}" Margin="0,1,0,0"/>
           </StackPanel>
         </Border>
         <Border Grid.Column="3" Style="{StaticResource StatTile}">
           <StackPanel>
-            <TextBlock Text="총 비용" FontSize="10.5" Opacity="0.4"/>
-            <TextBlock Text="{Binding PeriodTotalCostText}" FontSize="19" FontWeight="Bold"
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="총 비용" FontSize="10.5" Opacity="0.5" VerticalAlignment="Center"/>
+              <TextBlock Text="{Binding PeriodCostAvgText}" Style="{StaticResource MutedLabel}"
+                         Margin="8,0,0,0" VerticalAlignment="Center"/>
+            </StackPanel>
+            <TextBlock Text="{Binding PeriodTotalCostText}" FontSize="18" FontWeight="Bold"
                        Foreground="{DynamicResource SuccessTextBrush}" FontFamily="{StaticResource MonoFont}" Margin="0,1,0,0"/>
-            <TextBlock Text="{Binding PeriodCostAvgText}" Style="{StaticResource MutedLabel}" Margin="0,1,0,0"/>
           </StackPanel>
         </Border>
       </Grid>
@@ -313,7 +322,7 @@
               <TextBlock Text="비용($)" FontSize="11" Opacity="0.62" Margin="6,0,0,0"/>
             </StackPanel>
           </Grid>
-          <Canvas x:Name="SparkCanvas" Height="74" ClipToBounds="True"/>
+          <Canvas x:Name="SparkCanvas" Height="88" Background="Transparent" ClipToBounds="True"/>
         </StackPanel>
       </Border>
 
@@ -353,7 +362,8 @@
       </Border>
 
       <!-- ===== current projects ===== -->
-      <TextBlock Text="현재 사용 중인 프로젝트" Style="{StaticResource Eyebrow}" Margin="2,2,0,8"/>
+      <TextBlock Text="현재 사용 중인 프로젝트" FontSize="11.5" FontWeight="SemiBold"
+                 Foreground="{DynamicResource TextPrimaryBrush}" Opacity="0.9" Margin="2,2,0,8"/>
       <ItemsControl ItemsSource="{Binding LiveSessions}">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
@@ -362,11 +372,11 @@
           <DataTemplate>
             <Border Background="{DynamicResource CardBackgroundBrush}"
                     BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
-                    CornerRadius="999" Padding="12,5" Margin="0,0,8,7" ToolTip="{Binding FullPath}">
+                    CornerRadius="6" Padding="10,4" Margin="0,0,8,7" ToolTip="{Binding FullPath}">
               <StackPanel Orientation="Horizontal">
                 <Ellipse Width="7" Height="7" Fill="#4CC38A" VerticalAlignment="Center" Margin="0,0,7,0"/>
                 <TextBlock Text="{Binding ProjectName}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                <TextBlock Text="{Binding Status}" FontSize="10" Opacity="0.42" Margin="7,0,0,0"
+                <TextBlock Text="{Binding Status}" FontSize="10" Opacity="0.45" Margin="7,0,0,0"
                            VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
               </StackPanel>
             </Border>

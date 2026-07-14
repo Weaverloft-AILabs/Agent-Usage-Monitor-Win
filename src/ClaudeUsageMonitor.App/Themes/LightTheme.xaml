@@ -30,4 +30,11 @@
   <SolidColorBrush x:Key="HyperlinkHoverBrush" Color="#1B5AB0"/>
   <SolidColorBrush x:Key="BugDotBrush" Color="#E5484D"/>
   <SolidColorBrush x:Key="ImproveDotBrush" Color="#2F9E44"/>
+  <!-- 대시보드 리디자인 카드 (테마별) -->
+  <LinearGradientBrush x:Key="GaugeCardBrush" StartPoint="0,0" EndPoint="0,1">
+    <GradientStop Color="#FFFFFF" Offset="0"/>
+    <GradientStop Color="#F1F3FA" Offset="1"/>
+  </LinearGradientBrush>
+  <SolidColorBrush x:Key="ChartCardBrush" Color="#FFFFFF"/>
+  <SolidColorBrush x:Key="ChartCardBorderBrush" Color="#E0E3EE"/>
 </ResourceDictionary>
