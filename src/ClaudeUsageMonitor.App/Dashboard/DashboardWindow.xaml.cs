@@ -1,13 +1,16 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using ClaudeUsageMonitor.App.Interop;
 using ClaudeUsageMonitor.App.ViewModels;
+using ClaudeUsageMonitor.Core.Ui;
 
 namespace ClaudeUsageMonitor.App.Dashboard;
 
@@ -20,6 +23,7 @@ public partial class DashboardWindow : Window
 
     private readonly DashboardViewModel _viewModel;
     private DateTime _lastHoverKick;
+    private bool _initialSized;
 
     // 비용 스파크라인 hover 상태 (점 좌표·값·라벨·hover 오버레이)
     private readonly List<Point> _sparkPts = new();
@@ -359,6 +363,46 @@ public partial class DashboardWindow : Window
         }
         UsageChart.Height = h + 1;
         Dispatcher.BeginInvoke(DispatcherPriority.Background, () => UsageChart.Height = h);
+    }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        if (!_initialSized)
+        {
+            _initialSized = true;   // hide-on-close라 인스턴스 유지 → 최초 1회만(사용자 리사이즈 보존)
+            ApplyInitialSize();
+        }
+    }
+
+    /// <summary>현재(커서) 모니터 작업영역의 절반 크기로 열되, 최소 하한 미만이면 하한. 해당 모니터 중앙 배치.</summary>
+    private void ApplyInitialSize()
+    {
+        if (!NativeMethods.GetCursorPos(out var pt))
+        {
+            return;
+        }
+        var hMon = NativeMethods.MonitorFromPoint(pt, NativeMethods.MONITOR_DEFAULTTONEAREST);
+        var mi = new NativeMethods.MONITORINFOEX { cbSize = (uint)Marshal.SizeOf<NativeMethods.MONITORINFOEX>() };
+        if (!NativeMethods.GetMonitorInfo(hMon, ref mi))
+        {
+            return;
+        }
+        double workW = mi.rcWork.Right - mi.rcWork.Left;
+        double workH = mi.rcWork.Bottom - mi.rcWork.Top;
+        double dpiX = 1.0, dpiY = 1.0;
+        if (NativeMethods.GetDpiForMonitor(hMon, NativeMethods.MDT_EFFECTIVE_DPI, out var dx, out var dy) == 0 && dx > 0)
+        {
+            dpiX = dx / 96.0;
+            dpiY = dy / 96.0;
+        }
+        var (w, h) = DashboardSizing.ComputeInitialSize(workW, workH, dpiX, dpiY, MinWidth, MinHeight);
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        Width = w;
+        Height = h;
+        // 대상 모니터 작업영역 중앙 (물리 rect를 해당 모니터 DPI로 논리 변환)
+        Left = mi.rcWork.Left / dpiX + (workW / dpiX - w) / 2.0;
+        Top = mi.rcWork.Top / dpiY + (workH / dpiY - h) / 2.0;
     }
 
     /// <summary>닫기 대신 숨김 — 상태(기간 선택 등) 유지.</summary>
