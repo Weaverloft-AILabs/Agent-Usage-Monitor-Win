@@ -58,7 +58,9 @@ public partial class DashboardWindow : Window
                 NudgeChart();
             }
             // 비용 스파크라인은 별도 LiveCharts 인스턴스 없이 Polyline으로 직접 렌더 (측정 고착 회피)
-            else if (args.PropertyName == nameof(DashboardViewModel.CostPoints))
+            // CostPoints/CostLabels 어느 쪽이 바뀌어도 다시 그려 라벨-점 일관 보장(대입 순서 의존 제거)
+            else if (args.PropertyName == nameof(DashboardViewModel.CostPoints)
+                     || args.PropertyName == nameof(DashboardViewModel.CostLabels))
             {
                 DrawSparkline();
             }

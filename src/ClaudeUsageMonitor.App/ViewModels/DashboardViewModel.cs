@@ -466,8 +466,10 @@ public partial class DashboardViewModel : ObservableObject,
         Series = series.ToArray();
         XAxes = [new Axis { Labels = labels, LabelsRotation = 0, TextSize = 11, LabelsPaint = labelPaint }];
         YAxes = [new Axis { TextSize = 11, MinLimit = 0, LabelsPaint = labelPaint, Labeler = v => FormatTokens((long)v) }];
-        CostPoints = costs;
+        // 라벨을 먼저 대입해야 CostPoints 변경으로 트리거되는 DrawSparkline이 "현재 기간" 라벨을 읽는다
+        // (이전엔 CostPoints를 먼저 대입 → DrawSparkline이 직전 기간 CostLabels로 그려 hover 날짜가 한 전환 지연됨)
         CostLabels = labels;
+        CostPoints = costs;
     }
 
     private double DayCost(DailyRollup day)
