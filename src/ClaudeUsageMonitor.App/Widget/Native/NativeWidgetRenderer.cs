@@ -74,6 +74,12 @@ internal static class NativeWidgetRenderer
             contentWidth = S(RowSideMargin) * 2 + warn.Width;
             contentHeight = S(RowHeight * 2);
         }
+        else if (s.IsLoading)
+        {
+            var load = Text(g, LoadingText, 12f, scale, FontStyle.Regular);
+            contentWidth = S(RowSideMargin) * 2 + load.Width;
+            contentHeight = S(RowHeight * 2);
+        }
         else
         {
             // 두 행 중 넓은 쪽 (5H 행에만 소진 예측이 붙음)
@@ -102,6 +108,7 @@ internal static class NativeWidgetRenderer
     }
 
     private const string CliMissingText = "⚠ Claude Code 미감지";
+    private const string LoadingText = "로딩중…";
     private const string UpdateGlyph = "⬆";
     private static readonly Color CliMissingColor = Color.FromArgb(0xFF, 0xF0, 0xA0, 0x30);
 
@@ -146,6 +153,15 @@ internal static class NativeWidgetRenderer
             using var brush = new SolidBrush(CliMissingColor);
             var text = g.MeasureString(CliMissingText, font);
             g.DrawString(CliMissingText, font, brush, left, (size.Height - text.Height) / 2f);
+            return left + text.Width;
+        }
+
+        if (s.IsLoading)
+        {
+            using var font = RowFont(LoadingText, 12f, scale, FontStyle.Regular);
+            using var brush = new SolidBrush(s.Palette.Text);
+            var text = g.MeasureString(LoadingText, font);
+            g.DrawString(LoadingText, font, brush, left, (size.Height - text.Height) / 2f);
             return left + text.Width;
         }
 

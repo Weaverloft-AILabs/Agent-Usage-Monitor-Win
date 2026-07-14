@@ -235,12 +235,26 @@
               <TextBlock Text="{Binding FiveHourResetText}" FontSize="10" Opacity="0.42"
                          FontFamily="{StaticResource MonoFont}" HorizontalAlignment="Right"/>
             </Grid>
-            <StackPanel Orientation="Horizontal" Margin="0,1,0,6">
-              <TextBlock Text="{Binding FiveHourPct, StringFormat={}{0:0}}" FontSize="28" FontWeight="Bold"
-                         FontFamily="{StaticResource MonoFont}" LineHeight="28"/>
-              <TextBlock Text="%" FontSize="14" FontWeight="SemiBold" Opacity="0.6"
-                         VerticalAlignment="Bottom" Margin="2,0,0,4"/>
-            </StackPanel>
+            <Grid Margin="0,1,0,6">
+              <StackPanel Orientation="Horizontal">
+                <StackPanel.Style>
+                  <Style TargetType="StackPanel">
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding IsLoading}" Value="True">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </StackPanel.Style>
+                <TextBlock Text="{Binding FiveHourPct, StringFormat={}{0:0}}" FontSize="28" FontWeight="Bold"
+                           FontFamily="{StaticResource MonoFont}" LineHeight="28"/>
+                <TextBlock Text="%" FontSize="14" FontWeight="SemiBold" Opacity="0.6"
+                           VerticalAlignment="Bottom" Margin="2,0,0,4"/>
+              </StackPanel>
+              <TextBlock Text="로딩중…" FontSize="17" Opacity="0.5" VerticalAlignment="Bottom" Margin="0,0,0,3"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
+                         Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}"/>
+            </Grid>
             <Grid Height="7">
               <ProgressBar Value="{Binding FiveHourPct, Mode=OneWay}" Maximum="100" Height="7"
                            Style="{StaticResource GaugeBar}" Foreground="#5AAAFA"/>
@@ -268,12 +282,26 @@
               <TextBlock Text="{Binding SevenDayResetText}" FontSize="10" Opacity="0.42"
                          FontFamily="{StaticResource MonoFont}" HorizontalAlignment="Right"/>
             </Grid>
-            <StackPanel Orientation="Horizontal" Margin="0,1,0,6">
-              <TextBlock Text="{Binding SevenDayPct, StringFormat={}{0:0}}" FontSize="28" FontWeight="Bold"
-                         FontFamily="{StaticResource MonoFont}" LineHeight="28"/>
-              <TextBlock Text="%" FontSize="14" FontWeight="SemiBold" Opacity="0.6"
-                         VerticalAlignment="Bottom" Margin="2,0,0,4"/>
-            </StackPanel>
+            <Grid Margin="0,1,0,6">
+              <StackPanel Orientation="Horizontal">
+                <StackPanel.Style>
+                  <Style TargetType="StackPanel">
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding IsLoading}" Value="True">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </StackPanel.Style>
+                <TextBlock Text="{Binding SevenDayPct, StringFormat={}{0:0}}" FontSize="28" FontWeight="Bold"
+                           FontFamily="{StaticResource MonoFont}" LineHeight="28"/>
+                <TextBlock Text="%" FontSize="14" FontWeight="SemiBold" Opacity="0.6"
+                           VerticalAlignment="Bottom" Margin="2,0,0,4"/>
+              </StackPanel>
+              <TextBlock Text="로딩중…" FontSize="17" Opacity="0.5" VerticalAlignment="Bottom" Margin="0,0,0,3"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
+                         Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}"/>
+            </Grid>
             <Grid Height="7">
               <ProgressBar Value="{Binding SevenDayPct, Mode=OneWay}" Maximum="100" Height="7"
                            Style="{StaticResource GaugeBar}" Foreground="#8A6CF0"/>

@@ -23,12 +23,20 @@
                  Foreground="#F0A030" VerticalAlignment="Center" Margin="6,0"
                  Visibility="{Binding CliMissing, Converter={StaticResource BoolToVis}}"
                  ToolTip="Claude Code CLI가 설치되어 있지 않거나 로그인 정보를 읽을 수 없습니다.&#10;claude 명령으로 로그인하면 자동으로 복구됩니다."/>
+      <!-- 로딩중 — 시작/업데이트 직후 첫 사용률 조회 전, 게이지 대신 표시 -->
+      <TextBlock Text="로딩중…" FontSize="12" VerticalAlignment="Center" Margin="6,0"
+                 Foreground="{DynamicResource WidgetTextBrush}"
+                 Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}"
+                 ToolTip="사용률을 불러오는 중입니다."/>
       <!-- 5시간/주간 각 1줄, 세로 2줄 (작업표시줄 높이 안에 맞춤) -->
       <StackPanel Orientation="Vertical">
         <StackPanel.Style>
           <Style TargetType="StackPanel">
             <Style.Triggers>
               <DataTrigger Binding="{Binding CliMissing}" Value="True">
+                <Setter Property="Visibility" Value="Collapsed"/>
+              </DataTrigger>
+              <DataTrigger Binding="{Binding IsLoading}" Value="True">
                 <Setter Property="Visibility" Value="Collapsed"/>
               </DataTrigger>
             </Style.Triggers>

@@ -65,6 +65,12 @@ public partial class DashboardViewModel : ObservableObject,
     [ObservableProperty]
     private bool _isStale = true;
 
+    /// <summary>시작/업데이트 직후 첫 사용률 스냅샷을 받기 전 = 로딩중(게이지 %대신 "로딩중" 표시).</summary>
+    [ObservableProperty]
+    private bool _isLoading = true;
+
+    private bool _dashHasData;
+
     /// <summary>5시간 경고 임계값(%) — 히어로 게이지의 임계값 틱 위치.</summary>
     [ObservableProperty]
     private double _warnThresholdPct;
@@ -192,14 +198,17 @@ public partial class DashboardViewModel : ObservableObject,
     {
         if (_latestRateLimit is not { } message)
         {
+            IsLoading = true; // 아직 폴링 결과 없음 (시작/업데이트 직후)
             return;
         }
         var snapshot = message.State.Snapshot;
+        IsLoading = LoadingIndicator.IsLoading(_dashHasData, snapshot is not null, message.State.Status);
         if (snapshot is null)
         {
             IsStale = true;
             return;
         }
+        _dashHasData = true;
         FiveHourPct = snapshot.FiveHourPct;
         SevenDayPct = snapshot.SevenDayPct;
         IsStale = snapshot.IsStale;

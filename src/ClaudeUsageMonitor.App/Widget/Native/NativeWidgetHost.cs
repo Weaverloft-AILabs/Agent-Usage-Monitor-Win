@@ -206,6 +206,7 @@ public sealed class NativeWidgetHost : IDisposable
         var palette = ThemeManager.IsDarkEffective ? NativeWidgetPalette.Dark : NativeWidgetPalette.Light;
         native.UpdateSnapshot(new NativeWidgetSnapshot(
             CliMissing: _viewModel.CliMissing,
+            IsLoading: _viewModel.IsLoading,
             FiveHourPct: _viewModel.FiveHourPct,
             FiveHourResetText: _viewModel.FiveHourResetText,
             FiveHourBar: ToDrawingColor(_viewModel.FiveHourBrush),

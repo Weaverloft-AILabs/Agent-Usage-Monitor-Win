@@ -9,6 +9,7 @@ namespace ClaudeUsageMonitor.App.Widget.Native;
 /// </summary>
 public sealed record NativeWidgetSnapshot(
     bool CliMissing,
+    bool IsLoading,
     double FiveHourPct,
     string FiveHourResetText,
     Color FiveHourBar,

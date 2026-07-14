@@ -41,6 +41,12 @@ public partial class WidgetViewModel : ObservableObject,
     [ObservableProperty]
     private bool _isStale = true;
 
+    /// <summary>시작/업데이트 직후 첫 사용률 스냅샷을 받기 전 = 로딩중(게이지 대신 "로딩중" 표시).</summary>
+    [ObservableProperty]
+    private bool _isLoading = true;
+
+    private bool _hasData;
+
     /// <summary>현재 속도 기준 5시간 한도 소진 예상 (예: "~1h 20m"). 표시 조건 미달이면 빈 문자열.</summary>
     [ObservableProperty]
     private string _exhaustionText = "";
@@ -86,6 +92,11 @@ public partial class WidgetViewModel : ObservableObject,
         CliMissing = message.State.Status == RateLimitStatus.NoCredentials;
 
         var snapshot = message.State.Snapshot;
+        IsLoading = LoadingIndicator.IsLoading(_hasData, snapshot is not null, message.State.Status);
+        if (snapshot is not null)
+        {
+            _hasData = true;
+        }
         if (snapshot is null)
         {
             IsStale = true;
