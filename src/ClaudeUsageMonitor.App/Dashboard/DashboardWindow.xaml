@@ -357,6 +357,7 @@
                                 LegendTextPaint="{Binding LegendTextPaint}"
                                 TooltipTextPaint="{Binding TooltipTextPaint}"
                                 TooltipBackgroundPaint="{Binding TooltipBackgroundPaint}"
+                                TooltipTextSize="13"
                                 TooltipPosition="Top"
                                 LegendPosition="Top"/>
           </Grid>
