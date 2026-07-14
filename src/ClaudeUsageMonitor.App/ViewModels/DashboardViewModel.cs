@@ -298,7 +298,7 @@ public partial class DashboardViewModel : ObservableObject,
     {
         var today = DateOnly.FromDateTime(DateTime.Now);
         var range = _rollup.Range(today.AddDays(-13), today);
-        var labels = range.Select(d => d.Date.ToString("MM-dd")).ToArray();
+        var labels = range.Select(d => d.Date.ToString("MM/dd")).ToArray();
         var byModel = range.Select(d => d.ByModel.ToDictionary(kv => kv.Key, kv => kv.Value.Tokens)).ToList();
         var costs = range.Select(DayCost).ToArray();
         BuildStackedChart(labels, byModel, costs);
@@ -325,7 +325,9 @@ public partial class DashboardViewModel : ObservableObject,
                 return (Sunday: g.Key, ByModel: m);
             })
             .ToList();
-        var labels = weeks.Select(x => x.Sunday.ToString("MM-dd")).ToArray();
+        var labels = weeks
+            .Select(x => x.Sunday.ToString("MM/dd") + " - " + x.Sunday.AddDays(6).ToString("MM/dd"))
+            .ToArray();
         var byModel = weeks.Select(x => x.ByModel).ToList();
         var costs = weeks.Select(x => (double)CostOf(x.ByModel)).ToArray();
         BuildStackedChart(labels, byModel, costs);
@@ -334,7 +336,7 @@ public partial class DashboardViewModel : ObservableObject,
     private void BuildMonthlyTrend()
     {
         var months = _rollup.MonthlyTotals().TakeLast(12).ToList();
-        var labels = months.Select(m => m.Month).ToArray();
+        var labels = months.Select(m => m.Month.Replace('-', '/')).ToArray();
         var byModel = months.Select(m => m.ByModel).ToList();
         var costs = months.Select(m => (double)CostOf(m.ByModel)).ToArray();
         BuildStackedChart(labels, byModel, costs);
