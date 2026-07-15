@@ -378,10 +378,11 @@ public partial class DashboardViewModel : ObservableObject,
         for (var i = 0; i < models.Count; i++)
         {
             var model = models[i];
+            // 값이 0인 버킷은 null로 둔다 — 스택엔 0 기여(시각 동일)이지만 hover 툴팁에는 해당 모델 행이 표시되지 않음
             var values = byModelPerBucket
-                .Select(b => b.TryGetValue(model, out var t) ? (double)t.Total : 0d)
+                .Select(b => b.TryGetValue(model, out var t) && t.Total > 0 ? (double?)t.Total : null)
                 .ToArray();
-            series.Add(new StackedColumnSeries<double>
+            series.Add(new StackedColumnSeries<double?>
             {
                 Name = ShortModelName(model),
                 Values = values,
