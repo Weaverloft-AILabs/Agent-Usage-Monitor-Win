@@ -282,6 +282,12 @@ public partial class App : Application
         }
 
         _dashboard.Show();
+        // 이미 열려 있고 최소화된 상태면 Show()/Activate()만으론 복원되지 않는다 —
+        // WindowState를 Normal로 되돌려 다시 보이게 한 뒤 활성화
+        if (_dashboard.WindowState == WindowState.Minimized)
+        {
+            _dashboard.WindowState = WindowState.Normal;
+        }
         _dashboard.Activate();
     }
 
