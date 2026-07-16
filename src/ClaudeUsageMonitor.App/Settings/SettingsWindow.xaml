@@ -250,6 +250,19 @@
           <CheckBox x:Name="AutoUpdateToggle" Grid.Column="1" IsChecked="{Binding AutoUpdateWhenIdle}"/>
         </Grid>
 
+        <Grid Margin="0,10">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
+            <TextBlock Text="베타(beta) 버전도 받기" Style="{StaticResource RowLabel}"/>
+            <TextBlock Text="정식 버전뿐 아니라 시험판(beta) 업데이트도 인앱 업데이트로 받습니다 (기본 꺼짐)"
+                       Style="{StaticResource RowHint}"/>
+          </StackPanel>
+          <CheckBox x:Name="ReceiveBetaToggle" Grid.Column="1" IsChecked="{Binding ReceiveBetaUpdates}"/>
+        </Grid>
+
         <TextBlock Text="{Binding UpdateStatusText}" FontSize="11" Margin="0,0,0,8"
                    Foreground="{DynamicResource PredictionBrush}">
           <TextBlock.Style>

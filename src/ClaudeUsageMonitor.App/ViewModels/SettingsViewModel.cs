@@ -45,6 +45,10 @@ public partial class SettingsViewModel : ObservableObject, IRecipient<UpdateAvai
     [ObservableProperty]
     private bool _autoUpdateWhenIdle;
 
+    /// <summary>정식뿐 아니라 베타(prerelease)도 인앱 업데이트로 받기 (기본 꺼짐).</summary>
+    [ObservableProperty]
+    private bool _receiveBetaUpdates;
+
     [ObservableProperty]
     private string _statusText = "";
 
@@ -91,6 +95,7 @@ public partial class SettingsViewModel : ObservableObject, IRecipient<UpdateAvai
         _warnThresholdPct = settings.WarnThresholdPct;
         _warnNotificationEnabled = settings.WarnNotificationEnabled;
         _autoUpdateWhenIdle = settings.AutoUpdateWhenIdle;
+        _receiveBetaUpdates = settings.ReceiveBetaUpdates;
         _modeIndex = (int)settings.Mode;
         _taskbarEmbedEnabled = settings.TaskbarEmbedEnabled;
         _themeIndex = (int)settings.Theme;
@@ -111,6 +116,7 @@ public partial class SettingsViewModel : ObservableObject, IRecipient<UpdateAvai
         _settings.WarnThresholdPct = Math.Clamp(WarnThresholdPct, 10, 100);
         _settings.WarnNotificationEnabled = WarnNotificationEnabled;
         _settings.AutoUpdateWhenIdle = AutoUpdateWhenIdle;
+        _settings.ReceiveBetaUpdates = ReceiveBetaUpdates;
         _settings.Mode = (WidgetMode)Math.Clamp(ModeIndex, 0, 2);
         _settings.TaskbarEmbedEnabled = TaskbarEmbedEnabled;
         _settings.Theme = (ThemePreference)Math.Clamp(ThemeIndex, 0, 2);

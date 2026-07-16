@@ -68,6 +68,28 @@ public class SettingsStoreTests : IDisposable
         Assert.True(store.Load().AutoUpdateWhenIdle);
     }
 
+    [Fact]
+    public void ReceiveBetaUpdates_DefaultsToOff()
+        => Assert.False(new MonitorSettings().ReceiveBetaUpdates);
+
+    [Fact]
+    public void ReceiveBetaUpdates_MissingKey_LoadsAsOff()
+    {
+        // 구버전 settings.json(키 없음)은 정식 전용(베타 미수신)으로 로드 (기본 OFF)
+        File.WriteAllText(Path.Combine(_dir, "settings.json"), """{ "PollIntervalSeconds": 180 }""");
+
+        Assert.False(new SettingsStore(_dir).Load().ReceiveBetaUpdates);
+    }
+
+    [Fact]
+    public void ReceiveBetaUpdates_RoundTrips()
+    {
+        var store = new SettingsStore(_dir);
+        store.Save(new MonitorSettings { ReceiveBetaUpdates = true });
+
+        Assert.True(store.Load().ReceiveBetaUpdates);
+    }
+
     public void Dispose()
     {
         try { Directory.Delete(_dir, recursive: true); } catch (IOException) { }

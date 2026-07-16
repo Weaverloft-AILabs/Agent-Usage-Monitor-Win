@@ -33,10 +33,20 @@ public sealed class UpdateService : BackgroundService
     /// 베타/프리릴리스는 별도 채널(beta)로 발행되어 안정 설치본엔 뜨지 않는다.
     /// ExplicitChannel로 고정해 (혹시 베타 설치본을 깐 경우의) 채널 stickiness도 차단.</summary>
     private const string StableChannel = "win";
+    private const string BetaChannel = "beta";
 
     private readonly UpdateManager _manager = new(
         new GithubSource(RepoUrl, null, prerelease: false),
         new UpdateOptions { ExplicitChannel = StableChannel });
+
+    /// <summary>베타 채널 매니저 — 설정 ReceiveBetaUpdates가 켜졌을 때만 사용. prerelease:true로 GitHub prerelease
+    /// 릴리스도 읽고 ExplicitChannel="beta"로 releases.beta.json을 본다. 안정(win)과 함께 확인해 더 높은 버전을 제공.</summary>
+    private readonly UpdateManager _betaManager = new(
+        new GithubSource(RepoUrl, null, prerelease: true),
+        new UpdateOptions { ExplicitChannel = BetaChannel });
+
+    /// <summary>마지막 CheckAsync에서 Available을 고른 매니저 — 설치 흐름(VelopackUpdateFlow)이 같은 채널로 적용하도록.</summary>
+    private UpdateManager _activeManager;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly MonitorSettings _settings;
 
@@ -47,6 +57,7 @@ public sealed class UpdateService : BackgroundService
     {
         PendingMarker = new UpdatePendingMarker(paths.DataDirectory);
         _settings = settings;
+        _activeManager = _manager;
     }
 
     /// <summary>설치판에서 실행 중인지 (포터블/개발 실행이면 업데이트 불가).</summary>
@@ -119,12 +130,37 @@ public sealed class UpdateService : BackgroundService
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var info = await _manager.CheckForUpdatesAsync().ConfigureAwait(false);
-            Available = info;
-            if (info is not null)
+            var winInfo = await _manager.CheckForUpdatesAsync().ConfigureAwait(false);
+            var chosen = winInfo;
+            var chosenManager = _manager;
+
+            // 베타 옵트인: beta 채널도 확인해 정식+베타 중 더 높은 버전을 제공(승격 후 정식판을 못 받는 구간 방지).
+            // 베타 채널 일시 오류는 무시하고 안정 결과를 유지.
+            if (_settings.ReceiveBetaUpdates)
+            {
+                try
+                {
+                    var betaInfo = await _betaManager.CheckForUpdatesAsync().ConfigureAwait(false);
+                    if (betaInfo is not null
+                        && (winInfo is null
+                            || betaInfo.TargetFullRelease.Version > winInfo.TargetFullRelease.Version))
+                    {
+                        chosen = betaInfo;
+                        chosenManager = _betaManager;
+                    }
+                }
+                catch (Exception ex) when (ex is System.Net.Http.HttpRequestException or TaskCanceledException or System.IO.IOException)
+                {
+                    // 베타 채널 네트워크 오류 — 안정 결과만 사용
+                }
+            }
+
+            Available = chosen;
+            _activeManager = chosenManager;
+            if (chosen is not null)
             {
                 // 버전 문자열과 메이저 점프 여부를 같은 UpdateInfo에서 계산해 원자 쌍으로 발행
-                var target = info.TargetFullRelease.Version.ToString();
+                var target = chosen.TargetFullRelease.Version.ToString();
                 WeakReferenceMessenger.Default.Send(new UpdateAvailableMessage(
                     target, UpdateGate.IsMajorJump(CurrentVersionText, target)));
                 return true;
@@ -172,7 +208,7 @@ public sealed class UpdateService : BackgroundService
             return null;
         }
 
-        return new VelopackUpdateFlow(_manager, _gate, update, PendingMarker);
+        return new VelopackUpdateFlow(_activeManager, _gate, update, PendingMarker);
     }
 
     public override void Dispose()

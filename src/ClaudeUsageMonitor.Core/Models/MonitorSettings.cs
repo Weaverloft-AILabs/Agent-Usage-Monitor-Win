@@ -41,6 +41,9 @@ public sealed class MonitorSettings
     /// <summary>주기 업데이트 체크 완료 시 컴퓨터가 유휴(마지막 입력 후 30분)이면 자동 업데이트. 기본 꺼짐.</summary>
     public bool AutoUpdateWhenIdle { get; set; }
 
+    /// <summary>인앱 업데이트에서 정식 릴리스뿐 아니라 베타(prerelease)도 받을지. 기본 꺼짐(정식만).</summary>
+    public bool ReceiveBetaUpdates { get; set; }
+
     public WidgetMode Mode { get; set; } = WidgetMode.Taskbar;
 
     /// <summary>
