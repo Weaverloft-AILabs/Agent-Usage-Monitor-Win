@@ -329,14 +329,15 @@
         </Border>
         <Border Grid.Column="2" Style="{StaticResource StatTile}">
           <StackPanel>
-            <TextBlock Text="총 토큰" FontSize="10.5" Opacity="0.55"/>
+            <!-- 라벨에 집계기간(오늘/이번 주/이번 달)을 인라인 표기 — 새 줄 없이 한 줄 유지로 카드 높이 불변 -->
+            <TextBlock Text="{Binding PeriodScopeText, StringFormat='총 토큰 · {0}'}" FontSize="10.5" Opacity="0.55"/>
             <TextBlock Text="{Binding PeriodTotalTokensText}" FontSize="18" FontWeight="Bold"
                        FontFamily="{StaticResource MonoFont}" Margin="0,2,0,0"/>
           </StackPanel>
         </Border>
         <Border Grid.Column="3" Style="{StaticResource StatTile}">
           <StackPanel>
-            <TextBlock Text="총 비용" FontSize="10.5" Opacity="0.55"/>
+            <TextBlock Text="{Binding PeriodScopeText, StringFormat='총 비용 · {0}'}" FontSize="10.5" Opacity="0.55"/>
             <TextBlock Text="{Binding PeriodTotalCostText}" FontSize="18" FontWeight="Bold"
                        Foreground="{DynamicResource SuccessTextBrush}" FontFamily="{StaticResource MonoFont}" Margin="0,2,0,0"/>
           </StackPanel>
