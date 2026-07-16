@@ -346,7 +346,7 @@ internal static class NativeMethods
     public const byte AC_SRC_ALPHA = 0x01;
     public const uint ULW_ALPHA = 0x00000002;
 
-    [DllImport("user32.dll")]
+    [DllImport("user32.dll", SetLastError = true)]
     public static extern bool UpdateLayeredWindow(
         IntPtr hwnd, IntPtr hdcDst, IntPtr pptDst, ref SIZE psize,
         IntPtr hdcSrc, ref POINT pptSrc, uint crKey, ref BLENDFUNCTION pblend, uint dwFlags);

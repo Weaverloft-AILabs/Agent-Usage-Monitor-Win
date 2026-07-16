@@ -26,6 +26,8 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
     private const double DockMarginRight = 12;
     private const double DockGap = 6;
     private const int EmbedFailureLimit = 3;
+    // 보조 모니터 가로 작업표시줄의 Win11 시계(날짜+시간) 대략 폭 — 겹침 방지용 우측 예약(주 모니터는 트레이 rect로 정확히 제외).
+    private const double SecondaryClockReserve = 140;
 
     private readonly WidgetWindow _window;
     private readonly MonitorSettings _settings;
@@ -171,6 +173,13 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
 
     public void ApplyMode(WidgetMode mode)
     {
+        // 전체화면 억제 중에는 어떤 경로(설정 저장/모니터 이동/Explorer 재시작 등)로도 위젯을 다시 띄우지 않는다.
+        // 억제 해제 시 SetFullscreenSuppressed(false)가 ApplyMode(_settings.Mode)로 복원하므로 안전.
+        if (_hiddenByFullscreen && mode != WidgetMode.Hidden)
+        {
+            return;
+        }
+
         switch (mode)
         {
             case WidgetMode.Hidden:
@@ -374,6 +383,11 @@ public sealed class WidgetController : IDisposable, IRecipient<WidgetModeChanged
             tray.Left > target.Left && tray.Left < target.Right)
         {
             end = tray.Left - gapPx;
+        }
+        else if (!target.IsPrimary)
+        {
+            // 보조 작업표시줄은 트레이 notify rect가 없어 시계가 노출됨 — 대략 폭만큼 우측을 비워 겹침 방지.
+            end -= (int)Math.Round(SecondaryClockReserve * dpiScaleX);
         }
         return (start, Math.Max(start, end));
     }

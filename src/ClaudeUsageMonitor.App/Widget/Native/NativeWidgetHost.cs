@@ -25,6 +25,8 @@ public sealed class NativeWidgetHost : IDisposable
 {
     private const double DockMarginRight = 12;
     private const double DockGap = 6;
+    // 보조 모니터 가로 작업표시줄 Win11 시계 대략 폭 — 겹침 방지 우측 예약(주 모니터는 트레이 rect로 정확 제외).
+    private const double SecondaryClockReserve = 140;
 
     private readonly WidgetWindow _widget;
     private readonly WidgetViewModel _viewModel;
@@ -63,11 +65,13 @@ public sealed class NativeWidgetHost : IDisposable
 
     public bool IsActive => _native is { IsAlive: true };
 
-    /// <summary>부모 작업표시줄이 살아 있고 부모-자식 관계가 유지 중인가.</summary>
+    /// <summary>부모 작업표시줄이 살아 있고 부모-자식 관계가 유지되며, 렌더 표면 갱신도 정상인가.
+    /// (SetParent는 성공했으나 표면 갱신이 조용히 깨진 상태까지 unhealthy로 감지.)</summary>
     public bool IsHealthy =>
         _native is { } native && native.IsAlive &&
         NativeMethods.IsWindow(native.ParentTaskbar) &&
-        NativeMethods.GetParent(native.Hwnd) == native.ParentTaskbar;
+        NativeMethods.GetParent(native.Hwnd) == native.ParentTaskbar &&
+        native.RenderHealthy;
 
     /// <summary>
     /// 임베드 활성화 (이미 건강하면 재도킹만). 실패 시 false — 호출자는 오버레이로 폴백.
@@ -277,6 +281,11 @@ public sealed class NativeWidgetHost : IDisposable
             {
                 spanEnd = trayLeft.X - gap;
             }
+        }
+        else if (!_parentIsPrimary)
+        {
+            // 보조 작업표시줄은 트레이 notify rect가 없어 시계가 노출됨 — 대략 폭만큼 우측 예약.
+            spanEnd -= (int)Math.Round(SecondaryClockReserve * scale);
         }
 
         var maxX = Math.Max(spanStart, spanEnd - width);

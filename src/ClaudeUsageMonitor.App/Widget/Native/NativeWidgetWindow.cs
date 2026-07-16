@@ -31,9 +31,12 @@ public sealed class NativeWidgetWindow : IDisposable
     private readonly Thread _thread;
     private readonly ManualResetEventSlim _ready = new(false);
 
+    private const int RenderFailureThreshold = 3;
+
     private IntPtr _hwnd;
     private uint _nativeThreadId;
     private volatile bool _createFailed;
+    private volatile int _consecutiveRenderFailures;
 
     private readonly object _stateLock = new();
     private NativeWidgetSnapshot? _pendingSnapshot;
@@ -74,6 +77,10 @@ public sealed class NativeWidgetWindow : IDisposable
     public IntPtr ParentTaskbar => _parentTaskbar;
 
     public bool IsAlive => _hwnd != IntPtr.Zero && IsWindow(_hwnd);
+
+    /// <summary>렌더(UpdateLayeredWindow)가 연속 실패하지 않았는가 — 자식은 살아있으나 표면 갱신이
+    /// 조용히 깨진 상태(셸 구조 변경 등)를 헬스체크가 감지하도록 노출.</summary>
+    public bool RenderHealthy => _consecutiveRenderFailures < RenderFailureThreshold;
 
     /// <summary>창 생성+임베드 완료까지 대기. 실패 시 false (호출자는 오버레이로 폴백).</summary>
     public bool Start(TimeSpan timeout)
@@ -231,8 +238,17 @@ public sealed class NativeWidgetWindow : IDisposable
             };
             if (RegisterClassEx(ref wc) == 0)
             {
-                NativeWidgetLog.Write($"RegisterClassEx failed err={System.Runtime.InteropServices.Marshal.GetLastWin32Error()}");
-                return false;
+                var err = System.Runtime.InteropServices.Marshal.GetLastWin32Error();
+                const int ERROR_CLASS_ALREADY_EXISTS = 1410;
+                if (err != ERROR_CLASS_ALREADY_EXISTS)
+                {
+                    // 래치를 해제해 다음 임베드 시도가 재등록할 수 있게 한다 — 그러지 않으면 최초 1회 실패가
+                    // 세션 내내 임베드를 영구 차단(등록됐다고 오인해 CreateWindowEx가 계속 실패)한다.
+                    Interlocked.Exchange(ref _classRegistered, 0);
+                    NativeWidgetLog.Write($"RegisterClassEx failed err={err}");
+                    return false;
+                }
+                // 이미 등록됨(이전 임베드 사이클 잔존) — 정상, 진행
             }
         }
 
@@ -419,7 +435,17 @@ public sealed class NativeWidgetWindow : IDisposable
                 SourceConstantAlpha = 255,
                 AlphaFormat = AC_SRC_ALPHA,
             };
-            UpdateLayeredWindow(_hwnd, screenDc, IntPtr.Zero, ref size, memDc, ref source, 0, ref blend, ULW_ALPHA);
+            if (UpdateLayeredWindow(_hwnd, screenDc, IntPtr.Zero, ref size, memDc, ref source, 0, ref blend, ULW_ALPHA))
+            {
+                _consecutiveRenderFailures = 0;
+            }
+            else
+            {
+                // 반환값 무시 시 지속 실패해도 '건강'으로 보여 빈/스테일 위젯이 방치됨 —
+                // 연속 실패를 세어 RenderHealthy로 노출하면 호스트 헬스체크가 재임베드/폴백을 유도.
+                _consecutiveRenderFailures++;
+                NativeWidgetLog.Write($"UpdateLayeredWindow failed err={System.Runtime.InteropServices.Marshal.GetLastWin32Error()} streak={_consecutiveRenderFailures}");
+            }
         }
         finally
         {
