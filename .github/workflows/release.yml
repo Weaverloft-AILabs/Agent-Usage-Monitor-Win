@@ -59,16 +59,31 @@ jobs:
 
       - name: Install vpk
         if: github.ref_type == 'tag'
-        run: dotnet tool install -g vpk
+        # Velopack 라이브러리(Directory.Packages.props)와 동일 버전으로 고정 — 매 릴리스 최신 vpk 설치로
+        # pack 동작이 바뀌는 것을 방지(재현성).
+        run: dotnet tool install -g vpk --version 1.2.0
 
       # 이전 릴리스를 받아두면 vpk가 델타 패키지를 생성 (자동 업데이트 다운로드 최소화)
       - name: Download previous release for deltas
+        id: deltas
         if: github.ref_type == 'tag'
         continue-on-error: true   # 첫 릴리스에는 이전 릴리스가 없음
         run: >-
           vpk download github --repoUrl https://github.com/${{ github.repository }}
           --token ${{ secrets.GITHUB_TOKEN }} --channel ${{ steps.ver.outputs.channel }}
           -o artifacts/installer
+
+      # 델타 다운로드가 조용히 실패하면(네트워크/권한) full-only 패키지가 배포된다 — 로그에 경고를 남겨
+      # 무증상 델타 소실을 가시화한다(첫 릴리스는 정상적으로 이전본이 없어 nupkg가 비어 있음).
+      - name: Note delta availability
+        if: github.ref_type == 'tag'
+        run: |
+          $prev = Get-ChildItem 'artifacts/installer' -Filter '*-full.nupkg' -ErrorAction SilentlyContinue
+          if (-not $prev) {
+            Write-Host "::warning::이전 릴리스 nupkg를 받지 못함 - 델타 없이 full 패키지만 배포됩니다(첫 릴리스면 정상, 아니면 다운로드 실패 확인)."
+          } else {
+            Write-Host "delta base present: $($prev.Name -join ', ')"
+          }
 
       # 코드서명 (선택): 저장소 시크릿 VPK_SIGN_PARAMS에 signtool 인자를 넣으면 서명 활성화
       #   예) Azure Trusted Signing:

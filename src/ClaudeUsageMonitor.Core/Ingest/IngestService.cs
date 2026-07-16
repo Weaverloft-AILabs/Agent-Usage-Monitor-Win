@@ -81,9 +81,20 @@ public sealed class IngestService : BackgroundService
 
             if (changed)
             {
-                _aggregator!.PruneApplied(DateTimeOffset.UtcNow);
-                _rollupStore.Save(_rollup);
-                _stateStore.Save(_fileStates);
+                var now = DateTimeOffset.UtcNow;
+                _aggregator!.PruneApplied(now);
+                _rollup.LastScanUtc = now;
+                try
+                {
+                    // rollup을 먼저 저장 — state만 실패해도 재시작 시 Applied 맵이 재적용을 멱등 처리.
+                    _rollupStore.Save(_rollup);
+                    _stateStore.Save(_fileStates);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // 디스크 잠김/권한 오류: 이번 사이클 영속화만 건너뛰고 인메모리 상태 유지(다음 스캔 재시도).
+                    // 서비스를 폴트시키지 않는다(기본 StopHost로 백그라운드 전체 정지 방지).
+                }
                 RollupUpdated?.Invoke(_rollup);
             }
         }
@@ -95,7 +106,7 @@ public sealed class IngestService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await ScanAllAsync(stoppingToken).ConfigureAwait(false); // 백필
+        await SafeScanAsync(stoppingToken).ConfigureAwait(false); // 백필
         RollupUpdated?.Invoke(_rollup); // 변경 유무와 무관하게 초기 1회 발행 (UI 초기 표시)
         StartWatcher();
 
@@ -104,12 +115,29 @@ public sealed class IngestService : BackgroundService
         {
             while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
             {
-                await ScanAllAsync(stoppingToken).ConfigureAwait(false);
+                await SafeScanAsync(stoppingToken).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)
         {
             // 정상 종료
+        }
+    }
+
+    /// <summary>한 사이클 스캔 실패가 서비스를 폴트(기본 StopHost)시키지 않도록 격리. EnsureLoaded 실패도 다음 틱에 재시도.</summary>
+    private async Task SafeScanAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await ScanAllAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw; // 종료 신호는 전파
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // 이번 사이클만 실패 처리 — 다음 재스캔 틱이 복구를 시도.
         }
     }
 
@@ -144,9 +172,11 @@ public sealed class IngestService : BackgroundService
         {
             lines = _reader.ReadNewLines(path, state);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            return false; // 잠긴/사라진 파일은 다음 패스에서 재시도
+            // 잠긴/사라진 파일 또는 예기치 못한 리더 예외: 이 파일만 건너뛰고 다음 패스에서 재시도.
+            // 한 파일의 실패가 전체 인제스트(BackgroundService)를 폴트시키지 않게 격리한다.
+            return false;
         }
 
         var changed = false;
@@ -190,8 +220,9 @@ public sealed class IngestService : BackgroundService
             {
                 await ScanAllAsync().ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
+            catch (Exception ex) when (ex is not OutOfMemoryException)
             {
+                // 디바운스 스캔 실패는 주기 재스캔이 흡수 — 미관측 Task 예외 방지.
             }
         }
     }

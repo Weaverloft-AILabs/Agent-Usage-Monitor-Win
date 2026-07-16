@@ -20,6 +20,9 @@ public sealed class RollupData
     /// <summary>집계가 시작된 최초 로컬 날짜(yyyy-MM-dd). 이전 기간은 "부분 데이터"로 표시.</summary>
     public string? CoverageStart { get; set; }
 
+    /// <summary>마지막으로 성공적으로 스캔·저장한 시각(UTC). 재시작 시 <see cref="CoverageGap"/> 판정에 사용.</summary>
+    public DateTimeOffset? LastScanUtc { get; set; }
+
     /// <summary>yyyy-MM-dd(로컬) → 하루 집계.</summary>
     public Dictionary<string, DailyRollup> Days { get; set; } = new(StringComparer.Ordinal);
 

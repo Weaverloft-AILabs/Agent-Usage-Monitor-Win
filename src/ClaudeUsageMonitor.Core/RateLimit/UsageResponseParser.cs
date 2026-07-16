@@ -32,24 +32,38 @@ public static class UsageResponseParser
             var session = limits.FirstOrDefault(l => l.Kind == "session");
             var weeklyAll = limits.FirstOrDefault(l => l.Kind == "weekly_all");
 
+            var fiveHourResolved = false;
+            var sevenDayResolved = false;
+
             if (session is not null)
             {
                 fiveHourPct = session.Percent;
                 fiveHourResets = session.ResetsAt;
+                fiveHourResolved = true;
             }
             else if (TryReadWindow(root, "five_hour", out var fh))
             {
                 (fiveHourPct, fiveHourResets) = fh;
+                fiveHourResolved = true;
             }
 
             if (weeklyAll is not null)
             {
                 sevenDayPct = weeklyAll.Percent;
                 sevenDayResets = weeklyAll.ResetsAt;
+                sevenDayResolved = true;
             }
             else if (TryReadWindow(root, "seven_day", out var sd))
             {
                 (sevenDayPct, sevenDayResets) = sd;
+                sevenDayResolved = true;
+            }
+
+            // 스키마 드리프트(kind 개명/키 제거 등)로 어느 창도 인식 못하면 0%/정상 오표시 대신 null →
+            // 클라이언트가 Stale로 처리해 UI가 '로딩중/확인 불가'를 유지(임계 경고 오발화 방지).
+            if (!fiveHourResolved && !sevenDayResolved)
+            {
+                return null;
             }
 
             return new RateLimitSnapshot(
@@ -123,8 +137,21 @@ public static class UsageResponseParser
     private static string? GetString(JsonElement el, string name) =>
         el.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.String ? p.GetString() : null;
 
-    private static int GetInt(JsonElement el, string name) =>
-        el.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.Number ? p.GetInt32() : 0;
+    private static int GetInt(JsonElement el, string name)
+    {
+        if (!el.TryGetProperty(name, out var p) || p.ValueKind != JsonValueKind.Number)
+        {
+            return 0;
+        }
+        // 정수면 그대로. 소수/Int32 범위초과면 double로 읽어 반올림·클램프 —
+        // GetInt32()의 FormatException/OverflowException이 파서를 거쳐 폴링 서비스를 폴트시키는 것을 방지.
+        if (p.TryGetInt32(out var i))
+        {
+            return i;
+        }
+        // 소수/범위초과만 클램프 (int 캐스팅 오버플로 방지). 스냅샷 단계에서 다시 [0,100] 클램프됨.
+        return (int)Math.Clamp(Math.Round(p.GetDouble()), 0, 100);
+    }
 
     private static DateTimeOffset? GetDate(JsonElement el, string name)
     {

@@ -14,6 +14,9 @@ public sealed class RateLimitClient : IDisposable
 {
     public const string UsageUrl = "https://api.anthropic.com/api/oauth/usage";
 
+    /// <summary>CLI 버전을 검출하지 못했을 때의 User-Agent 폴백. 앱은 실제 검출값을 주입한다(이 값은 최후 수단).</summary>
+    public const string DefaultCliVersion = "2.1.204";
+
     private static readonly TimeSpan InitialBackoff = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan MaxBackoff = TimeSpan.FromMinutes(30);
 
@@ -26,7 +29,7 @@ public sealed class RateLimitClient : IDisposable
     private int _consecutive429;
     private DateTimeOffset? _backoffUntil;
 
-    public RateLimitClient(CredentialsReader credentials, HttpClient? http = null, string cliVersion = "2.1.204")
+    public RateLimitClient(CredentialsReader credentials, HttpClient? http = null, string cliVersion = DefaultCliVersion)
     {
         _credentials = credentials;
         _http = http ?? new HttpClient { Timeout = TimeSpan.FromSeconds(15) };

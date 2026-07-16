@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.IO.Pipes;
 
@@ -9,7 +10,13 @@ namespace ClaudeUsageMonitor.App.Startup;
 public sealed class SingleInstance : IDisposable
 {
     private const string MutexName = @"Local\ClaudeUsageMonitor_SingleInstance";
-    private const string PipeName = "ClaudeUsageMonitor_Activate";
+
+    // 뮤텍스가 Local\(세션 로컬)이라 세션마다 첫 인스턴스가 생긴다. 파이프명도 세션 ID로 격리하지 않으면
+    // 머신 전역이라, 두 번째 세션의 서버 생성이 ERROR_PIPE_BUSY로 실패해 busy-spin(코어 점유)했다.
+    private static readonly string PipeName =
+        "ClaudeUsageMonitor_Activate_" + Process.GetCurrentProcess().SessionId;
+
+    private static readonly TimeSpan ServerRetryDelay = TimeSpan.FromMilliseconds(500);
 
     private Mutex? _mutex;
     private CancellationTokenSource? _serverCts;
@@ -53,7 +60,15 @@ public sealed class SingleInstance : IDisposable
                 }
                 catch (IOException)
                 {
-                    // 파이프 오류 — 재시도
+                    // 파이프 오류(예: 다른 세션이 같은 이름 서버를 점유) — 짧게 물러난 뒤 재시도(busy-spin 방지)
+                    try
+                    {
+                        await Task.Delay(ServerRetryDelay, token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        return;
+                    }
                 }
             }
         }, token);

@@ -55,7 +55,9 @@ public sealed class CredentialsReader
                 return null;
             }
 
-            var accessToken = oauth.TryGetProperty("accessToken", out var at) ? at.GetString() : null;
+            // ValueKind를 확인하지 않고 GetString()/GetInt64()를 호출하면 타입 변경 시
+            // InvalidOperationException이 발생하고, 이 예외는 아래 catch에 안 잡혀 호출부로 전파됐다.
+            var accessToken = GetString(oauth, "accessToken");
             if (string.IsNullOrEmpty(accessToken))
             {
                 return null;
@@ -67,14 +69,18 @@ public sealed class CredentialsReader
             long? refreshExpiresAt = oauth.TryGetProperty("refreshTokenExpiresAt", out var rexp) && rexp.ValueKind == JsonValueKind.Number
                 ? rexp.GetInt64()
                 : null;
-            var subscription = oauth.TryGetProperty("subscriptionType", out var sub) ? sub.GetString() : null;
-            var tier = oauth.TryGetProperty("rateLimitTier", out var t) ? t.GetString() : null;
+            var subscription = GetString(oauth, "subscriptionType");
+            var tier = GetString(oauth, "rateLimitTier");
 
             return new Credentials(accessToken, expiresAt, refreshExpiresAt, subscription, tier);
         }
-        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException or InvalidOperationException)
         {
             return null;
         }
     }
+
+    /// <summary>문자열 값만 반환 — 비문자열(숫자/null 등)은 GetString() 예외 없이 null 처리.</summary>
+    private static string? GetString(JsonElement el, string name) =>
+        el.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.String ? p.GetString() : null;
 }

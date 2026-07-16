@@ -10,8 +10,16 @@ public static class AutoStartManager
 
     public static bool IsEnabled()
     {
-        using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath);
-        return key?.GetValue(ValueName) is not null;
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath);
+            return key?.GetValue(ValueName) is not null;
+        }
+        catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException or System.IO.IOException)
+        {
+            // 레지스트리 읽기 실패(접근 거부/키 삭제 대기 등)로 설정 창 생성자가 폴트하지 않게 방어.
+            return false;
+        }
     }
 
     public static void SetEnabled(bool enabled)

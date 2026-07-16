@@ -133,9 +133,9 @@ public partial class SettingsViewModel : ObservableObject, IRecipient<UpdateAvai
         {
             AutoStartManager.SetEnabled(AutoStart);
         }
-        catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException or System.IO.IOException)
         {
-            StatusText = "자동 시작 설정 실패 (레지스트리 접근 거부)";
+            StatusText = "자동 시작 설정 실패 (레지스트리 접근 오류)";
             return;
         }
 
