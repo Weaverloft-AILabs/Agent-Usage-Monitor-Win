@@ -25,6 +25,9 @@ public partial class DashboardWindow : Window
     private readonly DashboardViewModel _viewModel;
     private DateTime _lastHoverKick;
     private bool _initialSized;
+    // 차트 재측정 킥(BounceChartMargin)의 복원 기준 높이 — XAML 고정값(248)을 1회 캡처.
+    // live Height를 기준으로 쓰면 겹친 바운스에서 복원값이 누적 증가한다(아래 BounceChartMargin 참조).
+    private readonly double _chartBaseHeight;
 
     // 비용 스파크라인 hover 상태 (점 좌표·값·라벨·hover 오버레이)
     private readonly List<Point> _sparkPts = new();
@@ -41,6 +44,7 @@ public partial class DashboardWindow : Window
         InitializeComponent();
         _viewModel = viewModel;
         DataContext = viewModel;
+        _chartBaseHeight = UsageChart.Height;   // XAML Height="248" — 바운스 복원의 고정 기준
 
         DailyToggle.Checked += (_, _) => _viewModel.PeriodIndex = 0;
         WeeklyToggle.Checked += (_, _) => _viewModel.PeriodIndex = 1;
@@ -367,13 +371,16 @@ public partial class DashboardWindow : Window
     // Height 자체를 1px 바운스해 크기 변경(=재측정)을 강제한다.
     private void BounceChartMargin()
     {
-        var h = double.IsNaN(UsageChart.Height) ? UsageChart.ActualHeight : UsageChart.Height;
-        if (h <= 0)
+        // 복원 대상은 항상 고정 기준 높이(_chartBaseHeight)여야 한다 — live Height를 기준으로 삼으면
+        // 새로고침당 다중 NudgeChart(클릭 핸들러 + Series PropertyChanged, 각 즉시+350ms) 및 hover 바운스가
+        // 겹칠 때 복원값이 이미 +1된 값으로 캡처돼 매 호출마다 Height가 영구 증가한다(차트가 아래로 커져 x축이 클립됨).
+        // 고정 기준으로 복원하면 몇 번 겹쳐 호출돼도 항상 기준 높이로 수렴(멱등)한다.
+        if (double.IsNaN(_chartBaseHeight) || _chartBaseHeight <= 0)
         {
             return;
         }
-        UsageChart.Height = h + 1;
-        Dispatcher.BeginInvoke(DispatcherPriority.Background, () => UsageChart.Height = h);
+        UsageChart.Height = _chartBaseHeight + 1;
+        Dispatcher.BeginInvoke(DispatcherPriority.Background, () => UsageChart.Height = _chartBaseHeight);
     }
 
     protected override void OnSourceInitialized(EventArgs e)
