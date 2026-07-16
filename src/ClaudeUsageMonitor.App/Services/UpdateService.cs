@@ -45,8 +45,11 @@ public sealed class UpdateService : BackgroundService
         new GithubSource(RepoUrl, null, prerelease: true),
         new UpdateOptions { ExplicitChannel = BetaChannel });
 
-    /// <summary>마지막 CheckAsync에서 Available을 고른 매니저 — 설치 흐름(VelopackUpdateFlow)이 같은 채널로 적용하도록.</summary>
-    private UpdateManager _activeManager;
+    /// <summary>발견된 업데이트와 그 채널 매니저의 원자 쌍 — 참조 1개로 함께 교체돼 TOCTOU로 찢어지지 않는다.</summary>
+    private sealed record AvailableUpdate(UpdateInfo Info, UpdateManager Manager);
+
+    /// <summary>마지막 CheckAsync 결과(업데이트+채널 매니저). null이면 업데이트 없음.</summary>
+    private AvailableUpdate? _available;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly MonitorSettings _settings;
 
@@ -57,7 +60,6 @@ public sealed class UpdateService : BackgroundService
     {
         PendingMarker = new UpdatePendingMarker(paths.DataDirectory);
         _settings = settings;
-        _activeManager = _manager;
     }
 
     /// <summary>설치판에서 실행 중인지 (포터블/개발 실행이면 업데이트 불가).</summary>
@@ -70,7 +72,7 @@ public sealed class UpdateService : BackgroundService
             : System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "?";
 
     /// <summary>마지막 확인에서 발견된 업데이트 (없으면 null).</summary>
-    public UpdateInfo? Available { get; private set; }
+    public UpdateInfo? Available => _available?.Info;
 
     public string? AvailableVersionText => Available?.TargetFullRelease.Version.ToString();
 
@@ -86,12 +88,12 @@ public sealed class UpdateService : BackgroundService
     {
         get
         {
-            if (Available is not { } update)
+            if (_available is not { } snapshot)
             {
                 return null;
             }
 
-            var target = update.TargetFullRelease.Version.ToString();
+            var target = snapshot.Info.TargetFullRelease.Version.ToString();
             return (target, UpdateGate.IsMajorJump(CurrentVersionText, target));
         }
     }
@@ -130,7 +132,7 @@ public sealed class UpdateService : BackgroundService
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var winInfo = await _manager.CheckForUpdatesAsync().ConfigureAwait(false);
+            var winInfo = await _manager.CheckForUpdatesAsync(cancellationToken).ConfigureAwait(false);
             var chosen = winInfo;
             var chosenManager = _manager;
 
@@ -140,7 +142,7 @@ public sealed class UpdateService : BackgroundService
             {
                 try
                 {
-                    var betaInfo = await _betaManager.CheckForUpdatesAsync().ConfigureAwait(false);
+                    var betaInfo = await _betaManager.CheckForUpdatesAsync(cancellationToken).ConfigureAwait(false);
                     if (betaInfo is not null
                         && (winInfo is null
                             || betaInfo.TargetFullRelease.Version > winInfo.TargetFullRelease.Version))
@@ -155,8 +157,7 @@ public sealed class UpdateService : BackgroundService
                 }
             }
 
-            Available = chosen;
-            _activeManager = chosenManager;
+            _available = chosen is not null ? new AvailableUpdate(chosen, chosenManager) : null;
             if (chosen is not null)
             {
                 // 버전 문자열과 메이저 점프 여부를 같은 UpdateInfo에서 계산해 원자 쌍으로 발행
@@ -173,7 +174,14 @@ public sealed class UpdateService : BackgroundService
         }
         finally
         {
-            _gate.Release();
+            try
+            {
+                _gate.Release();
+            }
+            catch (ObjectDisposedException)
+            {
+                // 종료 중 Dispose와 경합 — 무시(앱이 이미 내려가는 중).
+            }
         }
     }
 
@@ -202,13 +210,16 @@ public sealed class UpdateService : BackgroundService
     /// 다른 UpdateInfo를 설치할 수 있음 (구 DownloadAndApplyAsync의 가드 불변식을 그대로 계승).</summary>
     public VelopackUpdateFlow? TryBeginInstall()
     {
-        if (Available is not { } update
-            || UpdateGate.IsMajorJump(CurrentVersionText, update.TargetFullRelease.Version.ToString()))
+        // 업데이트와 채널 매니저를 원자 쌍으로 1회 캡처 — 동시 CheckAsync가 쌍을 교체해도
+        // 서로 다른 UpdateInfo/매니저 조합으로 설치하는 일이 없다.
+        var snapshot = _available;
+        if (snapshot is null
+            || UpdateGate.IsMajorJump(CurrentVersionText, snapshot.Info.TargetFullRelease.Version.ToString()))
         {
             return null;
         }
 
-        return new VelopackUpdateFlow(_activeManager, _gate, update, PendingMarker);
+        return new VelopackUpdateFlow(snapshot.Manager, _gate, snapshot.Info, PendingMarker);
     }
 
     public override void Dispose()

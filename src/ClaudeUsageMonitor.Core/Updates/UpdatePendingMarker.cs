@@ -123,12 +123,19 @@ public sealed class UpdatePendingMarker
             return current.Minor > target.Minor;
         }
 
-        return current.Patch >= target.Patch;
+        if (current.Patch != target.Patch)
+        {
+            return current.Patch > target.Patch;
+        }
+
+        // 코어(M.m.p)가 같으면 프리릴리스 순서로 비교 — 정식(Pre=MaxValue) > beta.N > 낮은 beta.
+        // 이로써 beta.3→beta.4 실패(여전히 beta.3)를 '완료'로 오판하지 않는다.
+        return current.Pre >= target.Pre;
     }
 
-    private static bool TryParse(string? version, out (int Major, int Minor, int Patch) result)
+    private static bool TryParse(string? version, out (int Major, int Minor, int Patch, int Pre) result)
     {
-        result = (0, 0, 0);
+        result = (0, 0, 0, int.MaxValue);
         if (string.IsNullOrWhiteSpace(version))
         {
             return false;
@@ -140,11 +147,28 @@ public sealed class UpdatePendingMarker
             s = s[1..];
         }
 
-        // 프리릴리스(-)·빌드메타(+) 절단
-        var cut = s.IndexOfAny(['-', '+']);
-        if (cut >= 0)
+        // 빌드메타(+) 절단
+        var plus = s.IndexOf('+');
+        if (plus >= 0)
         {
-            s = s[..cut];
+            s = s[..plus];
+        }
+
+        // 프리릴리스(-) 분리: 없으면 정식(Pre=MaxValue, 가장 높음), '-beta.N'이면 N, 그 외 프리릴리스는 0.
+        var pre = int.MaxValue;
+        var dash = s.IndexOf('-');
+        if (dash >= 0)
+        {
+            var preTag = s[(dash + 1)..];
+            s = s[..dash];
+            pre = 0;
+            var dot = preTag.IndexOf('.');
+            if (dot >= 0
+                && preTag[..dot].Equals("beta", StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(preTag[(dot + 1)..], out var n))
+            {
+                pre = n;
+            }
         }
 
         var parts = s.Split('.');
@@ -165,7 +189,7 @@ public sealed class UpdatePendingMarker
             return false;
         }
 
-        result = (major, minor, patch);
+        result = (major, minor, patch, pre);
         return true;
     }
 }

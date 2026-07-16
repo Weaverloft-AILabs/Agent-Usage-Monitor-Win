@@ -77,6 +77,12 @@ public class UpdatePendingMarkerTests
     [InlineData("v2.2.1", "2.2.1", true)]  // v 접두 허용
     [InlineData("2.2.1+abc123", "2.2.1", true)] // 빌드메타 절단
     [InlineData("2.2.1", "v2.2.1", true)]
+    // 프리릴리스(beta) 연속성: beta.3→beta.4 실패(여전히 beta.3)를 '완료'로 오판하면 안 됨
+    [InlineData("2.7.10-beta.3", "2.7.10-beta.4", false)] // 실패 — 미적용
+    [InlineData("2.7.10-beta.4", "2.7.10-beta.4", true)]  // 적용됨
+    [InlineData("2.7.10-beta.5", "2.7.10-beta.4", true)]  // 더 높은 베타
+    [InlineData("2.7.10", "2.7.10-beta.4", true)]         // 정식이 베타 목표를 지남
+    [InlineData("2.7.10-beta.4", "2.7.10", false)]        // 베타는 아직 정식에 못 미침
     public void IsApplied_Compares_Numeric_Semver(string current, string target, bool expected)
         => Assert.Equal(expected, UpdatePendingMarker.IsApplied(current, target));
 

@@ -49,6 +49,10 @@ public sealed class VelopackUpdateFlow : IUpdateFlow
             // 다운로드 반환 = 체크섬 검증 + 델타 스테이징 완료 — 검증 단계는 즉시 통과
             progress.Report(new UpdateFlowProgress(1));
 
+            // 다운로드 완료 후 적용 예약(WaitExitThenApplyUpdates) 직전까지는 취소를 존중한다 —
+            // 그 지점 이후는 되돌릴 수 없으므로, 검증/설치 단계에서 누른 취소가 무시되지 않게 한 번 더 확인.
+            cancellationToken.ThrowIfCancellationRequested();
+
             // 무창 구간(적용~재시작)의 결과를 외부화 — 재시작/다음 실행이 이어받는다.
             // 기록 실패는 업데이트를 막지 않는다 (연속성 표시만 저하).
             _marker.Write(TargetVersion);
@@ -92,7 +96,14 @@ public sealed class VelopackUpdateFlow : IUpdateFlow
         }
         finally
         {
-            _gate.Release();
+            try
+            {
+                _gate.Release();
+            }
+            catch (ObjectDisposedException)
+            {
+                // 종료 중 UpdateService.Dispose와 경합 — 무시.
+            }
         }
     }
 }
