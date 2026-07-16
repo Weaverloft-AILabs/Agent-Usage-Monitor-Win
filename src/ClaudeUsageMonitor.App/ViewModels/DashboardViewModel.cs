@@ -213,8 +213,10 @@ public partial class DashboardViewModel : ObservableObject,
         SevenDayPct = snapshot.SevenDayPct;
         IsStale = snapshot.IsStale;
         _fiveHourResetsAt = snapshot.FiveHourResetsAt;
-        FiveHourResetText = snapshot.FiveHourResetsAt is { } f ? f.ToLocalTime().ToString("HH:mm") + " 리셋" : "-";
-        SevenDayResetText = snapshot.SevenDayResetsAt is { } s ? s.ToLocalTime().ToString("MM/dd HH:mm") + " 리셋" : "-";
+        // InvariantCulture로 리터럴 '/'·':' 강제 — 미지정 시 이 PC 문화권에선 'MM/dd'가 'MM-dd'로 렌더돼
+        // 차트 축(InvariantCulture로 07/16)과 불일치했다.
+        FiveHourResetText = snapshot.FiveHourResetsAt is { } f ? f.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture) + " 리셋" : "-";
+        SevenDayResetText = snapshot.SevenDayResetsAt is { } s ? s.ToLocalTime().ToString("MM/dd HH:mm", CultureInfo.InvariantCulture) + " 리셋" : "-";
         ExhaustionNote = BuildExhaustionNote(DateTimeOffset.UtcNow);
     }
 

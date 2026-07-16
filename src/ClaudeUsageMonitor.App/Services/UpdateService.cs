@@ -132,7 +132,9 @@ public sealed class UpdateService : BackgroundService
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var winInfo = await _manager.CheckForUpdatesAsync(cancellationToken).ConfigureAwait(false);
+            // Velopack 1.2.0 CheckForUpdatesAsync는 CancellationToken 오버로드가 없다 — 취소는 상위 gate.WaitAsync
+            // 대기 취소로 처리하고, 네트워크 호출 자체는 Velopack 내부 타임아웃에 맡긴다.
+            var winInfo = await _manager.CheckForUpdatesAsync().ConfigureAwait(false);
             var chosen = winInfo;
             var chosenManager = _manager;
 
@@ -142,7 +144,7 @@ public sealed class UpdateService : BackgroundService
             {
                 try
                 {
-                    var betaInfo = await _betaManager.CheckForUpdatesAsync(cancellationToken).ConfigureAwait(false);
+                    var betaInfo = await _betaManager.CheckForUpdatesAsync().ConfigureAwait(false);
                     if (betaInfo is not null
                         && (winInfo is null
                             || betaInfo.TargetFullRelease.Version > winInfo.TargetFullRelease.Version))

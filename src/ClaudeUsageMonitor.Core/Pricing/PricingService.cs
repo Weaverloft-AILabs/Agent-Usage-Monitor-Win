@@ -80,11 +80,19 @@ public sealed class PricingService
         return PartialMatch(EmbeddedPricing.Table, model);
     }
 
+    // 부분 일치 최소 길이 — 실제 모델 키는 모두 이보다 길다. 짧은 조각이 무관 모델에 오매칭되는 것 방지.
+    private const int MinPartialMatchLength = 8;
+
     private static ModelPricing? PartialMatch(IReadOnlyDictionary<string, ModelPricing> table, string model)
     {
         string? bestKey = null;
         foreach (var key in table.Keys)
         {
+            // 오매칭 방지: 부분 일치는 두 문자열 모두 최소 길이 이상일 때만 인정(정확 일치는 상위 Resolve가 이미 처리).
+            if (key.Length < MinPartialMatchLength || model.Length < MinPartialMatchLength)
+            {
+                continue;
+            }
             if (key.Contains(model, StringComparison.OrdinalIgnoreCase) ||
                 model.Contains(key, StringComparison.OrdinalIgnoreCase))
             {

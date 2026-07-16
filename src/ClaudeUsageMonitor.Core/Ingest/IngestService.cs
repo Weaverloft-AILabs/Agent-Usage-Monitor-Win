@@ -64,7 +64,11 @@ public sealed class IngestService : BackgroundService
 
             if (Directory.Exists(_projectsRoot))
             {
-                foreach (var path in Directory.EnumerateFiles(_projectsRoot, "*.jsonl", SearchOption.AllDirectories))
+                // 결정적 순서로 처리 — 파일 간 동일 message.id가 상이하게 존재하면 last-wins의 승자가
+                // OS별 열거 순서에 좌우돼 총계가 비결정적이 된다. 경로 정렬로 재현성을 보장.
+                var files = Directory.EnumerateFiles(_projectsRoot, "*.jsonl", SearchOption.AllDirectories)
+                    .OrderBy(p => p, StringComparer.OrdinalIgnoreCase);
+                foreach (var path in files)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     changed |= IngestFile(path);

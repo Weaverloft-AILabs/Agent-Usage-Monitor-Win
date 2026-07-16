@@ -1,0 +1,22 @@
+# 의존성 업데이트 자동 PR — NuGet 전이 의존(SkiaSharp 등)의 미패치 CVE 누적을 막는다.
+# (Directory.Build.props의 NuGetAudit 경고는 릴리스를 막지 않게 비-치명화했으므로, 실제 갱신은 여기로 처리.)
+version: 2
+updates:
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    groups:
+      # 소규모 패치/마이너는 한 PR로 묶어 잡음 축소
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"
