@@ -10,7 +10,7 @@ namespace ClaudeUsageMonitor.App.Services;
 /// usage API를 설정 주기(하한 20초, 기본 180초)로 폴링하고 결과를 메신저로 발행.
 /// 429 백오프 시 클라이언트가 알려준 NextPollAt까지 대기한다.
 /// </summary>
-public sealed class RateLimitPollingService : BackgroundService
+public sealed class RateLimitPollingService : BackgroundService, IRecipient<AccountChangedMessage>
 {
     private readonly RateLimitClient _client;
     private readonly MonitorSettings _settings;
@@ -24,7 +24,12 @@ public sealed class RateLimitPollingService : BackgroundService
         _client = client;
         _settings = settings;
         _estimator = estimator;
+        WeakReferenceMessenger.Default.Register(this);
     }
+
+    /// <summary>계정 전환 — 이전 계정의 소진속도 표본을 폐기(교차 계정 예측 오염 방지). AccountWatchService가
+    /// 이 메시지 발행 + TriggerNow(재폴링)를 하므로, 클리어 후의 첫 표본부터 새 계정 기준으로 쌓인다.</summary>
+    public void Receive(AccountChangedMessage message) => _estimator.Clear();
 
     /// <summary>트레이 "새로고침" — 대기를 깨워 즉시 폴링.</summary>
     public void TriggerNow() => _wake.Release();
@@ -119,6 +124,7 @@ public sealed class RateLimitPollingService : BackgroundService
 
     public override void Dispose()
     {
+        WeakReferenceMessenger.Default.Unregister<AccountChangedMessage>(this);
         _wake.Dispose();
         base.Dispose();
     }

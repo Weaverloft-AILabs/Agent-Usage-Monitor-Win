@@ -106,7 +106,7 @@ public partial class DashboardViewModel : ObservableObject,
 
     /// <summary>총계·모델분해의 현재 기간 라벨(오늘/이번 주/이번 달).</summary>
     [ObservableProperty]
-    private string _periodScopeText = "오늘";
+    private string _periodScopeText = "-";   // RebuildChart가 실제 날짜(MM/dd 등)로 채움
 
     [ObservableProperty]
     private string _coverageNote = "";
@@ -206,6 +206,7 @@ public partial class DashboardViewModel : ObservableObject,
         if (snapshot is null)
         {
             IsStale = true;
+            ExhaustionNote = "";   // 현재 데이터 없음 — 이전 스냅샷 기준 소진 예측을 그대로 남기면 오표시
             return;
         }
         _dashHasData = true;
@@ -281,7 +282,7 @@ public partial class DashboardViewModel : ObservableObject,
 
     private void RebuildChart()
     {
-        PeriodScopeText = PeriodIndex switch { 1 => "이번 주", 2 => "이번 달", _ => "오늘" };
+        PeriodScopeText = PeriodScopeLabel();    // 실제 날짜: 일 MM/dd · 주 MM/dd - MM/dd · 월 yyyy/MM
         BuildTrendChart();                       // 차트 = 기간 추세(모델 스택) + 비용 스파크라인
         var current = CurrentPeriodByModel();    // 총계·모델분해 = 현재 기간(당일/이번주 일~토/이번달)
         ApplyPeriodTotals(current);
@@ -349,11 +350,40 @@ public partial class DashboardViewModel : ObservableObject,
 
     private void BuildMonthlyTrend()
     {
-        var months = _rollup.MonthlyTotals().TakeLast(12).ToList();
-        var labels = months.Select(m => m.Month.Replace('-', '/')).ToArray();
-        var byModel = months.Select(m => m.ByModel).ToList();
-        var costs = months.Select(m => (double)CostOf(m.ByModel)).ToArray();
-        BuildStackedChart(labels, byModel, costs);
+        var totals = _rollup.MonthlyTotals().ToDictionary(m => m.Month, m => m, StringComparer.Ordinal);
+        if (totals.Count == 0)
+        {
+            BuildStackedChart([], [], []);
+            return;
+        }
+
+        // 연속 월 시퀀스(빈 달도 0으로 채움) — 일/주간(Range 제로필)과 일관되게 시간축 간격을 균일화한다.
+        // 데이터 시작 월과 '이번 달-11개월' 중 늦은 쪽부터 이번 달까지(최대 12개월, 선행 빈 달은 표시 안 함).
+        var earliestKey = totals.Keys.Min(StringComparer.Ordinal)!;
+        var earliest = new DateTime(int.Parse(earliestKey[..4], CultureInfo.InvariantCulture), int.Parse(earliestKey[5..], CultureInfo.InvariantCulture), 1);
+        var now = DateTime.Now;
+        var currentMonth = new DateTime(now.Year, now.Month, 1);
+        var start = earliest > currentMonth.AddMonths(-11) ? earliest : currentMonth.AddMonths(-11);
+
+        var labels = new List<string>();
+        var byModel = new List<Dictionary<string, TokenCounts>>();
+        var costs = new List<double>();
+        for (var m = start; m <= currentMonth; m = m.AddMonths(1))
+        {
+            var key = m.ToString("yyyy-MM", CultureInfo.InvariantCulture);
+            labels.Add(key.Replace('-', '/'));
+            if (totals.TryGetValue(key, out var data))
+            {
+                byModel.Add(data.ByModel);
+                costs.Add((double)CostOf(data.ByModel));
+            }
+            else
+            {
+                byModel.Add(new Dictionary<string, TokenCounts>(StringComparer.Ordinal));
+                costs.Add(0);
+            }
+        }
+        BuildStackedChart(labels.ToArray(), byModel, costs.ToArray());
     }
 
     /// <summary>모델별 스택 컬럼(일/주/월 공통). 모델명 오름차순 팔레트로 색 일관성 유지.</summary>
@@ -406,25 +436,40 @@ public partial class DashboardViewModel : ObservableObject,
 
     /// <summary>현재 기간(일간=당일 / 주간=이번 주 일요일~토요일 / 월간=이번 달)의 모델별 토큰 —
     /// 총계 카드·모델 분해의 소스. 차트가 보여주는 추세 범위와 별개로 "선택 기간" 집계다.</summary>
-    private Dictionary<string, TokenCounts> CurrentPeriodByModel()
+    /// <summary>현재 선택 기간의 로컬 날짜 범위 (총계·모델분해·기간 라벨이 공유해 일치시킨다).</summary>
+    private (DateOnly From, DateOnly To) CurrentPeriodRange()
     {
-        var today = DateOnly.FromDateTime(DateTime.Now);
-        DateOnly from, to;
+        var now = DateTime.Now;   // today와 DayOfWeek를 같은 순간에서 읽는다 — 자정 경계에서 한 주 어긋남 방지
+        var today = DateOnly.FromDateTime(now);
         switch (PeriodIndex)
         {
             case 1: // 이번 주 (일요일~토요일)
-                from = today.AddDays(-(int)DateTime.Now.DayOfWeek);
-                to = from.AddDays(6);
-                break;
+                var weekStart = today.AddDays(-(int)now.DayOfWeek);
+                return (weekStart, weekStart.AddDays(6));
             case 2: // 이번 달
-                from = new DateOnly(today.Year, today.Month, 1);
-                to = from.AddMonths(1).AddDays(-1);
-                break;
+                var monthStart = new DateOnly(today.Year, today.Month, 1);
+                return (monthStart, monthStart.AddMonths(1).AddDays(-1));
             default: // 당일
-                from = today;
-                to = today;
-                break;
+                return (today, today);
         }
+    }
+
+    /// <summary>기간 라벨을 실제 날짜로 — 일: MM/dd · 주: MM/dd - MM/dd(일~토) · 월: yyyy/MM.
+    /// InvariantCulture로 리터럴 '/'(차트 축과 동일 포맷). 범위는 CurrentPeriodRange로 총계와 일치.</summary>
+    private string PeriodScopeLabel()
+    {
+        var (from, to) = CurrentPeriodRange();
+        return PeriodIndex switch
+        {
+            1 => from.ToString("MM/dd", CultureInfo.InvariantCulture) + " - " + to.ToString("MM/dd", CultureInfo.InvariantCulture),
+            2 => from.ToString("yyyy/MM", CultureInfo.InvariantCulture),
+            _ => from.ToString("MM/dd", CultureInfo.InvariantCulture),
+        };
+    }
+
+    private Dictionary<string, TokenCounts> CurrentPeriodByModel()
+    {
+        var (from, to) = CurrentPeriodRange();
         var merged = new Dictionary<string, TokenCounts>();
         foreach (var day in _rollup.Range(from, to))
         {
@@ -516,12 +561,13 @@ public partial class DashboardViewModel : ObservableObject,
             : "";
     }
 
+    // InvariantCulture — 콤마 소수구분자 로케일에서 '1,5M'로 렌더돼 같은 화면의 비용($12.34, Invariant 고정)과 뒤섞이는 것 방지.
     private static string FormatTokens(long tokens) => tokens switch
     {
-        >= 1_000_000_000 => (tokens / 1_000_000_000.0).ToString("0.0") + "B",
-        >= 1_000_000 => (tokens / 1_000_000.0).ToString("0.0") + "M",
-        >= 1_000 => (tokens / 1_000.0).ToString("0.0") + "K",
-        _ => tokens.ToString(),
+        >= 1_000_000_000 => (tokens / 1_000_000_000.0).ToString("0.0", CultureInfo.InvariantCulture) + "B",
+        >= 1_000_000 => (tokens / 1_000_000.0).ToString("0.0", CultureInfo.InvariantCulture) + "M",
+        >= 1_000 => (tokens / 1_000.0).ToString("0.0", CultureInfo.InvariantCulture) + "K",
+        _ => tokens.ToString(CultureInfo.InvariantCulture),
     };
 
     private static string ShortModelName(string model) =>

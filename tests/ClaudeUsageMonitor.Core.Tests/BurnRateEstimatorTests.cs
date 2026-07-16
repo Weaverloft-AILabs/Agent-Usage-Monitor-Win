@@ -88,4 +88,19 @@ public class BurnRateEstimatorTests
 
         Assert.Equal(TimeSpan.Zero, estimator.EstimateTimeToExhaustion(T0.AddMinutes(6)));
     }
+
+    [Fact]
+    public void Clear_DiscardsSamples_ForAccountSwitch()
+    {
+        var estimator = new BurnRateEstimator();
+        estimator.Add(T0, 10);
+        estimator.Add(T0.AddMinutes(10), 20);
+        Assert.NotNull(estimator.EstimateTimeToExhaustion(T0.AddMinutes(10))); // 예측 산출됨
+
+        estimator.Clear(); // 계정 전환 — 이전 표본 폐기
+
+        // 새 계정 첫 표본 1개뿐 → 표본 부족으로 예측 없음(Clear 안 했다면 이전 표본과 섞여 예측이 나옴)
+        estimator.Add(T0.AddMinutes(11), 60);
+        Assert.Null(estimator.EstimateTimeToExhaustion(T0.AddMinutes(11)));
+    }
 }

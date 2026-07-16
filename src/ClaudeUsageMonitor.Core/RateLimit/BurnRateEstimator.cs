@@ -18,6 +18,16 @@ public sealed class BurnRateEstimator
     private readonly object _lock = new();
     private readonly List<(DateTimeOffset At, double Pct)> _samples = [];
 
+    /// <summary>표본 전부 폐기 — 계정 전환 시 이전 계정 표본이 새 계정의 속도 예측을 오염시키지 않게 한다.
+    /// (상승 전환은 Add의 하락-기반 리셋 감지에 걸리지 않으므로 명시적 초기화가 필요.)</summary>
+    public void Clear()
+    {
+        lock (_lock)
+        {
+            _samples.Clear();
+        }
+    }
+
     public void Add(DateTimeOffset at, double pct)
     {
         lock (_lock)

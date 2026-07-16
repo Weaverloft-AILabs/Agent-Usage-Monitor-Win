@@ -105,8 +105,11 @@ public static class JsonlParser
     }
 
     private static long GetLong(JsonElement element, string name) =>
+        // TryGetInt64 — 지수표기/소수/Int64 범위초과 등 비정수 숫자에서 GetInt64()가 FormatException을 던져
+        // TryParseLine의 JsonException-only catch를 빠져나가 스캔 사이클 전체를 폴트시키는 것을 방지.
         element.TryGetProperty(name, out var prop) && prop.ValueKind == JsonValueKind.Number
-            ? prop.GetInt64()
+            && prop.TryGetInt64(out var v)
+            ? v
             : 0;
 
     private static bool TryGetString(JsonElement element, string name, [NotNullWhen(true)] out string? value)

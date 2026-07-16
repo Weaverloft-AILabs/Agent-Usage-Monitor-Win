@@ -30,13 +30,26 @@ public sealed class IngestService : BackgroundService
 
     private readonly object _loadLock = new();
 
+    /// <summary>_rollup 구조 변경(Apply/Prune)과 UI 스레드 읽기 스냅샷을 상호배제. 스캔 전체가 아니라
+    /// 이벤트/스냅샷 단위로만 잡아 UI를 오래 막지 않는다(_scanGate와 별개, 중첩 안 함).</summary>
+    private readonly object _rollupLock = new();
+
     /// <summary>스캔 전이라도 디스크의 기존 롤업을 즉시 제공 (대시보드 초기 표시용).</summary>
     public RollupData CurrentRollup
     {
         get
         {
             EnsureLoaded();
-            return _rollup;
+            return SnapshotRollup();
+        }
+    }
+
+    /// <summary>_rollupLock 하에 읽기용 깊은 복사 — UI가 인제스트의 in-place 변경과 충돌 없이 열거하도록.</summary>
+    private RollupData SnapshotRollup()
+    {
+        lock (_rollupLock)
+        {
+            return _rollup.SnapshotForRead();
         }
     }
 
@@ -86,7 +99,10 @@ public sealed class IngestService : BackgroundService
             if (changed)
             {
                 var now = DateTimeOffset.UtcNow;
-                _aggregator!.PruneApplied(now);
+                lock (_rollupLock)
+                {
+                    _aggregator!.PruneApplied(now);
+                }
                 try
                 {
                     // rollup을 먼저 저장 — state만 실패해도 재시작 시 Applied 맵이 재적용을 멱등 처리.
@@ -98,7 +114,7 @@ public sealed class IngestService : BackgroundService
                     // 디스크 잠김/권한 오류: 이번 사이클 영속화만 건너뛰고 인메모리 상태 유지(다음 스캔 재시도).
                     // 서비스를 폴트시키지 않는다(기본 StopHost로 백그라운드 전체 정지 방지).
                 }
-                RollupUpdated?.Invoke(_rollup);
+                RollupUpdated?.Invoke(SnapshotRollup());
             }
         }
         finally
@@ -110,7 +126,7 @@ public sealed class IngestService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await SafeScanAsync(stoppingToken).ConfigureAwait(false); // 백필
-        RollupUpdated?.Invoke(_rollup); // 변경 유무와 무관하게 초기 1회 발행 (UI 초기 표시)
+        RollupUpdated?.Invoke(SnapshotRollup()); // 변경 유무와 무관하게 초기 1회 발행 (UI 초기 표시)
         StartWatcher();
 
         using var timer = new PeriodicTimer(_rescanInterval);
@@ -188,7 +204,10 @@ public sealed class IngestService : BackgroundService
         {
             if (JsonlParser.TryParseLine(line, out var parsed))
             {
-                changed |= _aggregator!.Apply(parsed!.ToUsageEvent());
+                lock (_rollupLock)
+                {
+                    changed |= _aggregator!.Apply(parsed!.ToUsageEvent());
+                }
             }
         }
         return changed;

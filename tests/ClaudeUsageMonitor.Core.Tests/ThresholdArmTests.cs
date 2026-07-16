@@ -85,4 +85,16 @@ public class ThresholdArmTests
         Assert.True(arm.ShouldFire(85, 80, window1));
         Assert.True(arm.ShouldFire(85, 80, window2)); // 다른 윈도우 — 재무장 발사
     }
+
+    [Fact]
+    public void DoesNotRefire_WhenResetsAtBecomesNull_InSameEpisode()
+    {
+        // resets_at가 지터로 잠깐 누락(null)돼도 같은 초과 에피소드는 재발사하지 않아야 한다.
+        var arm = new ThresholdArm();
+        var window = DateTimeOffset.Parse("2026-07-13T10:59:59.5+00:00");
+
+        Assert.True(arm.ShouldFire(85, 80, window));   // 실제 윈도우로 1회 발사
+        Assert.False(arm.ShouldFire(86, 80, null));    // 같은 에피소드, resets_at 누락 — 재발사 금지
+        Assert.False(arm.ShouldFire(86, 80, window));  // 윈도우 복귀해도 여전히 금지
+    }
 }

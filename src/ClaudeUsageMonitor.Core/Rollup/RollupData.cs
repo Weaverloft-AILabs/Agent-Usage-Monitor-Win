@@ -25,4 +25,30 @@ public sealed class RollupData
 
     /// <summary>messageId → 반영 내역. 보존기간(45일) 경과 시 정리.</summary>
     public Dictionary<string, AppliedMessage> Applied { get; set; } = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// 대시보드(UI 스레드) 읽기용 깊은 복사 — Days/ByModel 딕셔너리를 새로 만든다.
+    /// 인제스트 스레드가 in-place로 Days/ByModel을 변경하는 동안 UI가 원본을 열거하면
+    /// "Collection was modified" 크래시가 나므로, 경계에서 독립 스냅샷을 넘긴다.
+    /// (TokenCounts는 값/불변이라 참조 공유해도 안전. Applied는 대시보드가 안 쓰므로 제외.)
+    /// </summary>
+    public RollupData SnapshotForRead()
+    {
+        var copy = new RollupData { CoverageStart = CoverageStart };
+        foreach (var (key, day) in Days)
+        {
+            var dayCopy = new DailyRollup { Date = day.Date };
+            foreach (var (model, usage) in day.ByModel)
+            {
+                dayCopy.ByModel[model] = new ModelDayUsage
+                {
+                    Tokens = usage.Tokens,
+                    RequestCount = usage.RequestCount,
+                    Projects = new HashSet<string>(usage.Projects, StringComparer.OrdinalIgnoreCase),
+                };
+            }
+            copy.Days[key] = dayCopy;
+        }
+        return copy;
+    }
 }

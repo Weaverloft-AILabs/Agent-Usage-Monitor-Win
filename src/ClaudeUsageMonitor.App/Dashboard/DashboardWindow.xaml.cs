@@ -193,9 +193,10 @@ public partial class DashboardWindow : Window
         Canvas.SetTop(dot, last.Y - 3.5);
         SparkCanvas.Children.Add(dot);
 
-        // $축 라벨
+        // $축 라벨 — 소액 구간은 소수 자리를 살려 상단이 "$0"으로 반올림돼 기준선과 구분 불가한 문제 방지(hover와 동일 정밀도)
+        var maxFmt = max >= 10 ? "0" : max >= 1 ? "0.0" : "0.00";
         AddSparkText("$0", 4, padT + plotH - 8);
-        AddSparkText("$" + max.ToString("0"), 4, padT - 4);
+        AddSparkText("$" + max.ToString(maxFmt, System.Globalization.CultureInfo.InvariantCulture), 4, padT - 4);
 
         // X 날짜 라벨 — 각 데이터 점에 정렬해 표시(토큰 차트처럼 전체), 겹치면 그 라벨만 건너뜀
         if (_sparkLbls.Length == n)

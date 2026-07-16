@@ -83,6 +83,9 @@ public class UpdatePendingMarkerTests
     [InlineData("2.7.10-beta.5", "2.7.10-beta.4", true)]  // 더 높은 베타
     [InlineData("2.7.10", "2.7.10-beta.4", true)]         // 정식이 베타 목표를 지남
     [InlineData("2.7.10-beta.4", "2.7.10", false)]        // 베타는 아직 정식에 못 미침
+    // beta.N 이외 프리릴리스(rc 등)는 문자열 정확 동등 폴백 — 다른 rc가 >= 로 오판되지 않아야 함
+    [InlineData("2.7.10-rc.1", "2.7.10-rc.2", false)]     // 실패(여전히 rc.1) — 미적용
+    [InlineData("2.7.10-rc.2", "2.7.10-rc.2", true)]      // 정확 일치 — 적용
     public void IsApplied_Compares_Numeric_Semver(string current, string target, bool expected)
         => Assert.Equal(expected, UpdatePendingMarker.IsApplied(current, target));
 

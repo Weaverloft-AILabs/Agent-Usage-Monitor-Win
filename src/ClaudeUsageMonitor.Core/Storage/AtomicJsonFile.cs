@@ -83,9 +83,10 @@ public static class AtomicJsonFile
             value = JsonSerializer.Deserialize<T>(File.ReadAllText(path), Options);
             return value is not null; // "null" 리터럴/빈 역직렬화는 실패로 취급 → 백업 폴백
         }
-        catch (JsonException)
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
-            // 손상된 파일: 백업 폴백 유도 (JSONL 재스캔은 30일 초과분을 복구하지 못하므로 백업이 1차 방어)
+            // 손상/접근불가(락 등): 백업 폴백 유도 — Save의 IsWellFormedJson과 대칭.
+            // (JsonException만 잡으면 primary 락 시 IOException이 폴백을 우회해 전파됐다.)
             return false;
         }
     }

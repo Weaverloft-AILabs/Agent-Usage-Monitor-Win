@@ -161,13 +161,18 @@ public sealed class UpdatePendingMarker
         {
             var preTag = s[(dash + 1)..];
             s = s[..dash];
-            pre = 0;
             var dot = preTag.IndexOf('.');
             if (dot >= 0
                 && preTag[..dot].Equals("beta", StringComparison.OrdinalIgnoreCase)
                 && int.TryParse(preTag[(dot + 1)..], out var n))
             {
                 pre = n;
+            }
+            else
+            {
+                // beta.N 이외 프리릴리스(rc/alpha 등)는 파싱 실패로 두어 IsApplied가 문자열 정확 동등으로 폴백 —
+                // 전부 pre=0으로 뭉개면 서로 다른 rc가 >= 로 오판돼 실패한 업데이트를 'Completed'로 보고했다.
+                return false;
             }
         }
 
