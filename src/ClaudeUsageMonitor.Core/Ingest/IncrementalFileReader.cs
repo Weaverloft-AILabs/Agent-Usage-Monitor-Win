@@ -74,10 +74,25 @@ public sealed class IncrementalFileReader
             read += n;
         }
 
+        if (read == 0)
+        {
+            // 길이 측정 직후 파일이 오프셋까지 잘려 즉시 EOF — Array.LastIndexOf(-1,0) 예외 방지.
+            return Array.Empty<string>();
+        }
+
         var lastNewline = Array.LastIndexOf(buffer, (byte)'\n', read - 1, read);
         if (lastNewline < 0)
         {
-            // 완결된 라인이 아직 없음 — 다음 패스에서 처리
+            // 버퍼(64MB)를 꽉 채웠는데 개행이 없고 그 뒤로 데이터가 더 있으면 = 단일 라인이 상한을 초과.
+            // 그대로 두면 오프셋이 전진하지 않아 매 스캔 같은 창을 무한 재독(영구 정체 + 이후 라인 미수집)한다.
+            // → 이 병리적 창을 건너뛰어 전진시킨다(초대형 라인 1건은 미수집, 나머지는 정상 진행).
+            if (read == buffer.Length && remaining > read)
+            {
+                state.ByteOffset += read;
+                state.LastLength = stream.Length;
+                return Array.Empty<string>();
+            }
+            // 완결된 라인이 아직 없음(파일 끝의 부분 라인) — 다음 패스에서 처리
             return Array.Empty<string>();
         }
 

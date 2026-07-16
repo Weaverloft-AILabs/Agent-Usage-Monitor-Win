@@ -83,7 +83,6 @@ public sealed class IngestService : BackgroundService
             {
                 var now = DateTimeOffset.UtcNow;
                 _aggregator!.PruneApplied(now);
-                _rollup.LastScanUtc = now;
                 try
                 {
                     // rollup을 먼저 저장 — state만 실패해도 재시작 시 Applied 맵이 재적용을 멱등 처리.
@@ -172,10 +171,11 @@ public sealed class IngestService : BackgroundService
         {
             lines = _reader.ReadNewLines(path, state);
         }
-        catch (Exception ex) when (ex is not OutOfMemoryException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // 잠긴/사라진 파일 또는 예기치 못한 리더 예외: 이 파일만 건너뛰고 다음 패스에서 재시도.
-            // 한 파일의 실패가 전체 인제스트(BackgroundService)를 폴트시키지 않게 격리한다.
+            // 잠긴/사라진 파일은 이 파일만 건너뛰고 다음 패스에서 재시도.
+            // 그 외 예기치 못한 예외는 삼키지 않고 상위(SafeScanAsync)의 사이클 단위 격리에 맡긴다
+            // — 체계적 결함이 파일별로 조용히 영구 무시되는 것을 피한다.
             return false;
         }
 

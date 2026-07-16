@@ -145,11 +145,11 @@ public static class UsageResponseParser
         }
         // 정수면 그대로. 소수/Int32 범위초과면 double로 읽어 반올림·클램프 —
         // GetInt32()의 FormatException/OverflowException이 파서를 거쳐 폴링 서비스를 폴트시키는 것을 방지.
+        // percent는 [0,100] 의미이므로 정수/소수 경로 모두 일관되게 클램프(정상 값엔 무영향, 오버플로/이상치만 보정).
         if (p.TryGetInt32(out var i))
         {
-            return i;
+            return Math.Clamp(i, 0, 100);
         }
-        // 소수/범위초과만 클램프 (int 캐스팅 오버플로 방지). 스냅샷 단계에서 다시 [0,100] 클램프됨.
         return (int)Math.Clamp(Math.Round(p.GetDouble()), 0, 100);
     }
 

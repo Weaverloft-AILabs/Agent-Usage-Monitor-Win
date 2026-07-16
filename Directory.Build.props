@@ -6,7 +6,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <!-- NuGet 보안 감사 경고(NU19xx)는 새 CVE가 공개되면 SDK/코드 변경 없이도 갑자기 나타나
          릴리스 빌드를 막을 수 있다 → 에러로 승격하지 않고 경고로 유지(Dependabot/수동 대응). -->
-    <WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
+    <WarningsNotAsErrors>NU1900;NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
     <!-- 복원 재현성: packages.lock.json 생성/사용 (CPM과 함께 전이 의존 버전까지 고정). -->
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>

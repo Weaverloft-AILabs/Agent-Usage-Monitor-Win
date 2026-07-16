@@ -60,8 +60,8 @@ jobs:
       - name: Install vpk
         if: github.ref_type == 'tag'
         # Velopack 라이브러리(Directory.Packages.props)와 동일 버전으로 고정 — 매 릴리스 최신 vpk 설치로
-        # pack 동작이 바뀌는 것을 방지(재현성).
-        run: dotnet tool install -g vpk --version 1.2.0
+        # pack 동작이 바뀌는 것을 방지(재현성). update = 없으면 설치/있으면 해당 버전으로(러너 프리인스톨 대비 멱등).
+        run: dotnet tool update -g vpk --version 1.2.0
 
       # 이전 릴리스를 받아두면 vpk가 델타 패키지를 생성 (자동 업데이트 다운로드 최소화)
       - name: Download previous release for deltas

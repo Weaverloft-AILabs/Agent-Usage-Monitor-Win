@@ -35,6 +35,10 @@ public sealed class RateLimitPollingService : BackgroundService
         {
             while (!stoppingToken.IsCancellationRequested)
             {
+                // 버스트로 쌓인 즉시-폴 신호(TriggerNow 연타)를 모아 지금의 폴 한 번으로 처리 —
+                // 비공식 sticky-429 엔드포인트를 연속 폴로 두들기지 않게 한다.
+                while (_wake.Wait(0)) { }
+
                 var now = DateTimeOffset.UtcNow;
                 RateLimitState state;
                 try

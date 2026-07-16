@@ -13,10 +13,15 @@ public sealed class SingleInstance : IDisposable
 
     // 뮤텍스가 Local\(세션 로컬)이라 세션마다 첫 인스턴스가 생긴다. 파이프명도 세션 ID로 격리하지 않으면
     // 머신 전역이라, 두 번째 세션의 서버 생성이 ERROR_PIPE_BUSY로 실패해 busy-spin(코어 점유)했다.
-    private static readonly string PipeName =
-        "ClaudeUsageMonitor_Activate_" + Process.GetCurrentProcess().SessionId;
+    private static readonly string PipeName = "ClaudeUsageMonitor_Activate_" + GetSessionId();
 
     private static readonly TimeSpan ServerRetryDelay = TimeSpan.FromMilliseconds(500);
+
+    private static int GetSessionId()
+    {
+        using var p = Process.GetCurrentProcess(); // Process는 IDisposable — 핸들 누수 방지
+        return p.SessionId;
+    }
 
     private Mutex? _mutex;
     private CancellationTokenSource? _serverCts;

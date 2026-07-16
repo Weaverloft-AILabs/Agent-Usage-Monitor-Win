@@ -35,12 +35,27 @@ public static class AtomicJsonFile
 
         if (File.Exists(path))
         {
-            // 직전 정상본을 .bak으로 이동(세대 백업). 손상 시 Load가 여기서 복구한다.
-            File.Replace(tmp, path, destinationBackupFileName: path + ".bak");
+            // 현재 primary가 정상(well-formed)일 때만 .bak으로 강등한다. 이미 손상된 primary를 .bak으로 옮기면
+            // 직전에 남아 있던 '정상' .bak을 덮어써 이중손상 창이 생기므로, 손상 시엔 .bak을 건드리지 않는다.
+            var backup = IsWellFormedJson(path) ? path + ".bak" : null;
+            File.Replace(tmp, path, destinationBackupFileName: backup);
         }
         else
         {
             File.Move(tmp, path);
+        }
+    }
+
+    private static bool IsWellFormedJson(string path)
+    {
+        try
+        {
+            using var _ = JsonDocument.Parse(File.ReadAllText(path));
+            return true;
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            return false; // 손상/접근불가 → 좋은 .bak 보존
         }
     }
 

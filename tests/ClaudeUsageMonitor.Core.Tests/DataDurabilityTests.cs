@@ -51,6 +51,21 @@ public sealed class DataDurabilityTests : IDisposable
     }
 
     [Fact]
+    public void Save_WithCorruptPrimary_DoesNotClobberGoodBackup()
+    {
+        var path = P("data.json");
+        AtomicJsonFile.Save(path, new Box("good-bak"));
+        AtomicJsonFile.Save(path, new Box("primary2")); // path=primary2, .bak=good-bak
+
+        // primary가 손상된 상태에서 새 저장 — 손상 primary가 .bak(good-bak)을 덮어쓰면 안 됨
+        File.WriteAllText(path, "{ corrupt");
+        AtomicJsonFile.Save(path, new Box("primary3"));
+
+        Assert.Equal("primary3", AtomicJsonFile.Load<Box>(path)!.Value);
+        Assert.Equal("good-bak", AtomicJsonFile.Load<Box>(path + ".bak")!.Value); // 좋은 백업 보존
+    }
+
+    [Fact]
     public void Load_ReturnsNull_WhenPrimaryAndBackupBothCorrupt()
     {
         var path = P("data.json");
