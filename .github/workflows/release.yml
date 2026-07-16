@@ -29,10 +29,18 @@ jobs:
         run: |
           if ("${{ github.ref_type }}" -eq "tag") {
             $v = "${{ github.ref_name }}".TrimStart("v")
+            # 안정판 vX.Y.Z 또는 베타 vX.Y.Z-beta.N 만 허용 — 그 외 태그는 발행 차단(비정식 버전이 채널에 못 들어가게)
+            if ($v -notmatch '^\d+\.\d+\.\d+(-beta\.\d+)?$') {
+              throw "invalid release tag '${{ github.ref_name }}' -> '$v' (expected X.Y.Z or X.Y.Z-beta.N)"
+            }
+            # 베타는 별도 채널 'beta' + GitHub prerelease 플래그로 격리 → 안정 설치본(win 채널)엔 안 뜸
+            if ($v -like '*-beta*') { $ch = 'beta'; $pre = 'true' } else { $ch = 'win'; $pre = 'false' }
           } else {
-            $v = "0.0.0"   # workflow_dispatch 검증 실행
+            $v = "0.0.0"; $ch = 'win'; $pre = 'false'   # workflow_dispatch 검증 실행
           }
           "version=$v" >> $env:GITHUB_OUTPUT
+          "channel=$ch" >> $env:GITHUB_OUTPUT
+          "is_pre=$pre" >> $env:GITHUB_OUTPUT
 
       # 별도 스텝으로 분리 — pwsh는 마지막 명령의 종료코드만 전파해 앞 스텝 실패가 가려짐
       - name: Test (Core)
@@ -59,7 +67,8 @@ jobs:
         continue-on-error: true   # 첫 릴리스에는 이전 릴리스가 없음
         run: >-
           vpk download github --repoUrl https://github.com/${{ github.repository }}
-          --token ${{ secrets.GITHUB_TOKEN }} -o artifacts/installer
+          --token ${{ secrets.GITHUB_TOKEN }} --channel ${{ steps.ver.outputs.channel }}
+          -o artifacts/installer
 
       # 코드서명 (선택): 저장소 시크릿 VPK_SIGN_PARAMS에 signtool 인자를 넣으면 서명 활성화
       #   예) Azure Trusted Signing:
@@ -73,6 +82,7 @@ jobs:
         run: |
           $packArgs = @(
             'pack',
+            '--channel', '${{ steps.ver.outputs.channel }}',
             '--packId', 'AgentUsageMonitor',
             '--packVersion', '${{ steps.ver.outputs.version }}',
             '--packDir', 'artifacts/publish',
@@ -95,7 +105,7 @@ jobs:
       # 커스텀 브랜드 인스톨러 (v2.0.0+) — 릴리스 "공개 전"에 빌드해 실패 시 릴리스 자체를 중단
       # (공개 후 빌드하면 실패 시 README가 안내하는 자산이 없는 릴리스가 라이브로 남음)
       - name: Publish custom installer (self-contained single exe, Setup embedded for offline install)
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' && !contains(github.ref_name, '-beta')
         run: |
           # Design C: 위 vpk pack이 만든 Setup.exe를 인스톨러에 임베드 → 네트워크 없이도(오프라인) 설치.
           # Setup가 없으면 Resolve-Path가 실패해 스텝이 중단됨(임베드 없는 인스톨러가 조용히 배포되는 것 방지).
@@ -108,15 +118,24 @@ jobs:
 
       - name: Upload GitHub release
         if: github.ref_type == 'tag'
-        run: >-
-          vpk upload github --repoUrl https://github.com/${{ github.repository }}
-          --token ${{ secrets.GITHUB_TOKEN }} --publish
-          --releaseName "Agent Usage Monitor ${{ steps.ver.outputs.version }}"
-          --tag ${{ github.ref_name }} --targetCommitish ${{ github.sha }}
-          -o artifacts/installer
+        run: |
+          $uploadArgs = @(
+            'upload', 'github',
+            '--repoUrl', 'https://github.com/${{ github.repository }}',
+            '--token', '${{ secrets.GITHUB_TOKEN }}',
+            '--publish',
+            '--channel', '${{ steps.ver.outputs.channel }}',
+            '--releaseName', 'Agent Usage Monitor ${{ steps.ver.outputs.version }}',
+            '--tag', '${{ github.ref_name }}',
+            '--targetCommitish', '${{ github.sha }}',
+            '-o', 'artifacts/installer'
+          )
+          # 베타는 GitHub prerelease 플래그로도 표시 → GithubSource(prerelease:false) 외곽 차단 이중화
+          if ('${{ steps.ver.outputs.is_pre }}' -eq 'true') { $uploadArgs += '--pre' }
+          vpk @uploadArgs
 
       - name: Attach custom installer to release
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' && !contains(github.ref_name, '-beta')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload ${{ github.ref_name }} "artifacts/installer-app/AgentUsageMonitor-Installer.exe" --repo ${{ github.repository }} --clobber
@@ -124,7 +143,7 @@ jobs:
       # 커스텀 Installer.exe가 Setup를 임베드(오프라인 설치)하고 인앱 업데이트는 nupkg를 쓰므로
       # standalone Setup.exe 공개 자산은 불필요 → 게시본에서 제거. (위 vpk pack이 만든 아티팩트는 임베드 소스로 이미 사용됨.)
       - name: Remove standalone Setup.exe from the published release
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' && !contains(github.ref_name, '-beta')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

@@ -29,7 +29,14 @@ public sealed class UpdateService : BackgroundService
     /// <summary>유휴 자동 업데이트 발화 하한 — 마지막 입력 후 이 시간 이상이면 유휴로 본다.</summary>
     private static readonly TimeSpan IdleThreshold = TimeSpan.FromMinutes(30);
 
-    private readonly UpdateManager _manager = new(new GithubSource(RepoUrl, null, prerelease: false));
+    /// <summary>안정 릴리스 채널. 인앱 업데이트는 이 채널의 releases.win.json만 확인한다 —
+    /// 베타/프리릴리스는 별도 채널(beta)로 발행되어 안정 설치본엔 뜨지 않는다.
+    /// ExplicitChannel로 고정해 (혹시 베타 설치본을 깐 경우의) 채널 stickiness도 차단.</summary>
+    private const string StableChannel = "win";
+
+    private readonly UpdateManager _manager = new(
+        new GithubSource(RepoUrl, null, prerelease: false),
+        new UpdateOptions { ExplicitChannel = StableChannel });
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly MonitorSettings _settings;
 
